@@ -22,6 +22,7 @@
 #include <perspective/process_state.h>
 #include <perspective/computed.h>
 #include <perspective/computed_column_map.h>
+#include <perspective/computed_expression.h>
 #include <perspective/computed_function.h>
 #include <tsl/ordered_map.h>
 #ifdef PSP_ENABLE_PYTHON

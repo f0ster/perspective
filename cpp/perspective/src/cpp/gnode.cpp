@@ -286,6 +286,42 @@ t_gnode::_process_table(t_uindex port_id) {
         // gnode, i.e. from all created contexts.
         _compute_all_columns({flattened});
 
+        // FIXME: just testing out exprtk
+        auto flattened_schema = flattened->get_schema();
+        bool test_exprtk = true;
+
+        std::vector<std::string> icol_names = {
+            "test_a",
+            "test_b",
+            "test_c",
+            "test_d"
+        };
+
+        std::vector<std::shared_ptr<t_column>> icols;
+
+        for (const auto& name : icol_names) {
+            test_exprtk = test_exprtk && flattened_schema.has_column(name);
+            if (test_exprtk) {
+                icols.push_back(flattened->get_column(name));
+            }
+        }
+
+        if (test_exprtk) {
+            auto output_column = flattened->add_column_sptr(
+                "test_output", DTYPE_FLOAT64, true);
+            std::string expression_string = "(test_a + test_b) * 30 - test_c * (test_d / 2)";
+
+            t_computed_expression::compute(
+                expression_string,
+                icol_names,
+                icols,
+                output_column
+            );
+
+            output_column->pprint();
+        }
+
+
         m_gstate->update_master_table(flattened.get());
 
         m_oports[PSP_PORT_FLATTENED]->set_table(flattened);
