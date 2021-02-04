@@ -309,10 +309,11 @@ t_gnode::_process_table(t_uindex port_id) {
         if (test_exprtk) {
             auto output_column = flattened->add_column_sptr(
                 "test_output", DTYPE_FLOAT64, true);
-            std::string expression_string = "(test_a + test_b) * 30 - test_c * (test_d / 2)";
+            std::string expression_string = "col('xyz') * (test_a + test_b) * 30 - test_c * (test_d / 2)";
 
             t_computed_expression::compute(
                 expression_string,
+                flattened,
                 icol_names,
                 icols,
                 output_column

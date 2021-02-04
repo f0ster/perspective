@@ -582,6 +582,9 @@ if (PSP_WASM_BUILD)
 	add_library(psp ${WASM_SOURCE_FILES})
 	target_compile_definitions(psp PRIVATE PSP_ENABLE_WASM=1)
 	set_target_properties(psp PROPERTIES COMPILE_FLAGS "")
+
+	# Precompile exprtk header
+	target_precompile_headers(psp PRIVATE ${PSP_CPP_SRC}/src/include/perspective/exprtk.h)
 	target_link_libraries(psp arrow)
 
 	# "esm/erspective.cpp.js" from CMAKE_EXECUTABLE_SYNTAX

@@ -1751,6 +1751,7 @@ int
 main(int argc, char** argv) {
 // seed the computations vector
 t_computed_column::make_computations();
+t_computed_expression::generate_functions();
 
 // clang-format off
 EM_ASM({

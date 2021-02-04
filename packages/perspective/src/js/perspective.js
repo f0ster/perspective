@@ -984,6 +984,7 @@ export default function(Module) {
         this.filter = config.filter || [];
         this.sort = config.sort || [];
         this.computed_columns = config.computed_columns || [];
+        this.compute = config.compute || [];
         this.filter_op = config.filter_op || "and";
         this.row_pivot_depth = config.row_pivot_depth;
         this.column_pivot_depth = config.column_pivot_depth;
