@@ -286,6 +286,18 @@ protected:
      */
     t_value_transition calc_transition(bool prev_existed, bool row_pre_existed, bool exists,
         bool prev_valid, bool cur_valid, bool prev_cur_eq, bool prev_pkey_eq);
+    
+    /******************************************************************************
+     *
+     * Computed Column Operations
+     */
+    void _compute(
+        std::vector<std::shared_ptr<t_data_table>> tables);
+
+    void _recompute(
+        std::shared_ptr<t_data_table> tbl,
+        std::shared_ptr<t_data_table> flattened,
+        const std::vector<t_rlookup>& changed_rows);
 
     /**
      * @brief For all valid computed columns registered with the gnode,
@@ -378,6 +390,10 @@ private:
     std::vector<t_schema> m_transitional_schemas;
 
     t_computed_column_map m_computed_column_map;
+
+    // a reference count map for expressions - TODO: this can be simplified
+    // down I think.
+    tsl::ordered_map<std::string, t_uindex> m_expression_map;
 
     bool m_init;
     t_uindex m_id;

@@ -11,21 +11,67 @@
 
 namespace perspective {
 
-std::shared_ptr<exprtk::parser<double>> t_computed_expression::NUMERIC_PARSER = std::make_shared<exprtk::parser<double>>();
+std::shared_ptr<exprtk::parser<double>>
+t_computed_expression::NUMERIC_PARSER = std::make_shared<exprtk::parser<double>>();
 
 template <typename T>
 computed_expression::col<T>::col(std::shared_ptr<t_data_table> data_table)
         : m_data_table(data_table)
         , m_columns({})
-        , m_ridx(0) {}
+        , m_ridxs({}) {}
 
 template <typename T>
-T computed_expression::col<T>::next(std::shared_ptr<t_column> column) {
-    // TODO: finish null handling
-    // if (!column->is_valid(m_ridx)) {
-    T value = *(column->get_nth<T>(m_ridx));
-    m_ridx += 1;
-    return value;
+computed_expression::col<T>::~col() {}
+
+template <typename T>
+T computed_expression::col<T>::next(
+    std::shared_ptr<t_column> column,
+    const std::string& column_name) {
+    std::cout << "NOT IMPLEMENTED" << std::endl;
+    std::string error = "next<T>() Not implemented!\n";
+    PSP_COMPLAIN_AND_ABORT(error);
+}
+
+template <>
+t_tscalar computed_expression::col<t_tscalar>::next(
+    std::shared_ptr<t_column> column,
+    const std::string& column_name) {
+    t_uindex ridx = m_ridxs[column_name];
+    return column->get_scalar(ridx);
+}
+
+template <>
+double computed_expression::col<double>::next(
+    std::shared_ptr<t_column> column,
+    const std::string& column_name) {
+    // will always return a valid scalar
+    t_uindex ridx = m_ridxs[column_name];
+    t_tscalar scalar = column->get_scalar(ridx);
+    bool valid = column->is_valid(ridx);
+    m_ridxs[column_name] += 1;
+
+    if (!valid || scalar.is_none()) {
+        return NAN;
+    } else {
+        return scalar.get<double>();
+    }
+}
+
+template <>
+std::string computed_expression::col<std::string>::next(
+    std::shared_ptr<t_column> column,
+    const std::string& column_name) {
+    // will always return a valid scalar
+    t_uindex ridx = m_ridxs[column_name];
+    t_tscalar scalar = column->get_scalar(ridx);
+    bool valid = column->is_valid(ridx);
+    m_ridxs[column_name] += 1;
+
+    if (!valid || scalar.is_none()) {
+        return "";
+    }  else {
+        return scalar.get<std::string>();
+    }
 }
 
 template <typename T>
@@ -34,106 +80,57 @@ T computed_expression::col<T>::operator()(t_parameter_list parameters) {
 
     if (num_params == 0) {
         std::stringstream ss;
-        ss << "col() cannot be empty" << std::endl;
+        ss << "Expression error: col() function cannot be empty." << std::endl;
+        std::cout << ss.str();
         PSP_COMPLAIN_AND_ABORT(ss.str());
     }
 
     t_string_view param = t_string_view(parameters[0]);
     std::string column_name(param.begin(), param.size());
 
+    std::cout << "cname '" << column_name << "'" << std::endl;
+
     if (m_columns.count(column_name) == 1) {
         auto column = m_columns[column_name];
-        return next(column);
+        return next(column, column_name);
     } else {
         auto column = m_data_table->operator[](column_name);
+
         if (column == nullptr) {
             std::stringstream ss;
             ss << column_name << " does not exist!" << std::endl;
+            std::cout << ss.str();
             PSP_COMPLAIN_AND_ABORT(ss.str());
         }
 
         m_columns[column_name] = column;
-        return next(column);
+        m_ridxs[column_name] = 0;
+        return next(column, column_name);
     }
 }
 
-/**
- * @brief TODO: instead of implementing a col() UDF, impl. a pre-parser for
- * the expression in the form of foo(expr) -> list(str), returning a list of
- * column names. pre-serialize each column out into a vector of primitives -
- * I think we can do this through memcpy and just reading that underlying
- * memory as a vector<double> etc. and then serialize the vector to a string
- * in order to take advantage of exprtk's ability to have user-defined
- * vectors inside expressions, and the issue that UDFs can only return
- * scalars or strings and not vectors. Thus, right now we do a get_nth()
- * from a column pointer per iteration - grabbing a whole vector at once
- * should be more optimizable. We would still need a col() UDF for columns
- * with spaces in the name, but there might be a way to make that cleaned
- * in the precompile step (i.e. col("Name with spaces") -> Name_with_spaces,
- * assuming there are no collisions between something like "abc def" and "abc   def",
- * which should really just resolve to abc_def and abc___def).
- * 
- * Thus, valid tokens would be:
- * 
- * - column: any non-quote enclosed token that contains [a-Z][0-9][_], or
- *   col("abc def") that can be reduced to [a-Z][0-9][_]
- * - scalar: any numeric value or 'string' in single quotes
- * - function: a function expression like abs() or sqrt()
- * 
- * so when the user types an expression like:
- * 
- * a + 12 / b * (c + d - 50)
- * 
- * it would be preprocessed into:
- * 
- * {
- *  expression: ...,
- *  input_columns: [a, b, c, d]
- * }
- * 
- * and then the expression string passed to parser.compile():
- * 
- * "
- * var a[100] != {1, 2, 3, 4, ...};
- * var b[100] != {5, 6, 7, 8, ...};
- * var c[100] != {1.5, 2.5, 3.5, 4.5, ...};
- * var d[100] != {0.1, 0.2, 0.3, 0.4, ...};
- * a + 12 / b * (c + d - 50)
- * "
- * 
- * this would get us vector level operations that could very well be
- * SIMD'd, and is a cleaner API that covers up a lot of internal complexity -
- * this can be good or bad.
- * 
- * @param expression 
- * @param data_table 
- * @param input_column_names 
- * @param input_columns 
- * @param output_column 
+/******************************************************************************
+ *
+ * t_computed_expression
  */
-void t_computed_expression::compute(
+
+void
+t_computed_expression::init() {
+    t_computed_expression::NUMERIC_PARSER->enable_unknown_symbol_resolver();
+}
+
+void
+t_computed_expression::compute(
     const std::string& expression,
-    std::shared_ptr<t_data_table> data_table,
-    const std::vector<std::string>& input_column_names,
-    const std::vector<std::shared_ptr<t_column>> input_columns,
-    std::shared_ptr<t_column> output_column) {
+    std::shared_ptr<t_data_table> data_table) {
     exprtk::symbol_table<double> sym_table;
 
-    std::vector<double> initial(input_columns.size());
-    std::fill(initial.begin(), initial.end(), 0);
-
-    for (auto i = 0; i < input_column_names.size(); ++i) {
-        sym_table.add_variable(input_column_names[i], initial[i]);
-    }
-
-    exprtk::symbol_table<double> functions;
+    // register the data table with col() so it can grab values from
+    // each column.
     computed_expression::col<double> col_fn(data_table);
-
-    functions.add_function("col", col_fn);
+    sym_table.add_function("col", col_fn);
 
     exprtk::expression<double> expr_definition;
-    
-    expr_definition.register_symbol_table(functions);
     expr_definition.register_symbol_table(sym_table);
 
     if (!t_computed_expression::NUMERIC_PARSER->compile(expression, expr_definition)) {
@@ -146,27 +143,83 @@ void t_computed_expression::compute(
 
         PSP_COMPLAIN_AND_ABORT(ss.str());
     }
+    
+    // create or get output column
+    auto output_column = data_table->add_column_sptr(expression, t_dtype::DTYPE_FLOAT64, true);
+    output_column->reserve(data_table->size());
 
-    for (auto ridx = 0; ridx < output_column->size(); ++ridx) {
-
-        // TODO: this is bad
-        for (auto cidx = 0; cidx < input_columns.size(); ++cidx) {
-            auto val = *(input_columns[cidx]->get_nth<double>(ridx));
-            initial[cidx] = val;
-        }
-
+    for (t_uindex ridx = 0; ridx < data_table->size(); ++ridx) {
         double value = expr_definition.value();
-        
+
         if (std::isnan(value)) {
             output_column->clear(ridx);
         } else {
             output_column->set_nth<double>(ridx, value);
         }
-
     }
+
+    output_column->pprint();
 };
 
 void
-t_computed_expression::generate_functions() {}
+t_computed_expression::recompute(
+    const std::string& expression,
+    std::shared_ptr<t_data_table> tbl,
+    std::shared_ptr<t_data_table> flattened,
+    const std::vector<t_rlookup>& changed_rows) {
+    // t_uindex num_rows = changed_rows.size();
+
+    // if (num_rows == 0) {
+    //     num_rows = tbl->size();
+    // }
+
+    // exprtk::symbol_table<double> sym_table;
+    // exprtk::symbol_table<t_tscalar> sym_table2;
+
+    // // register the data table with col() so it can grab values from
+    // // each column.
+    // computed_expression::col<double> col_fn(data_table);
+    // sym_table.add_function("col", col_fn);
+
+    // exprtk::expression<double> expr_definition;
+    // expr_definition.register_symbol_table(sym_table);
+
+    // if (!t_computed_expression::NUMERIC_PARSER->compile(expression, expr_definition)) {
+    //     std::stringstream ss;
+    //     ss << "Failed to parse expression: `"
+    //         << expression
+    //         << "`, failed with error: "
+    //         << t_computed_expression::NUMERIC_PARSER->error().c_str()
+    //         << std::endl;
+
+    //     PSP_COMPLAIN_AND_ABORT(ss.str());
+    // }
+    
+    // // create or get output column
+    // auto output_column = flattened->add_column_sptr(expression, t_dtype::DTYPE_FLOAT64, true);
+    // output_column.reserve(flattened->size());
+
+    // for (t_uindex ridx = 0; ridx < num_rows; ++ridx) {
+    //     bool row_already_exists = false;
+    //     t_uindex ridx = idx;
+
+    //     // Look up the changed row index, and whether the row already exists
+    //     if (changed_rows.size() > 0) {
+    //         ridx = changed_rows[idx].m_idx;
+    //         row_already_exists = changed_rows[idx].m_exists;
+    //     }
+
+
+    //     double value = expr_definition.value();
+
+    //     if (std::isnan(value)) {
+    //         output_column->clear(ridx);
+    //     } else {
+    //         output_column->set_nth<double>(ridx, value);
+    //     }
+    // }
+
+    // output_column->pprint();
+    }
 
 } // end namespace perspective

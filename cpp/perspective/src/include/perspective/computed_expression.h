@@ -16,6 +16,7 @@
 #include <perspective/scalar.h>
 #include <perspective/column.h>
 #include <perspective/data_table.h>
+#include <perspective/rlookup.h>
 #include <date/date.h>
 
 // a precompiled header that includes exprtk.
@@ -42,11 +43,13 @@ struct col : public exprtk::igeneric_function<T> {
 
     std::shared_ptr<t_data_table> m_data_table;
     std::map<std::string, std::shared_ptr<t_column>> m_columns;
-    t_uindex m_ridx;
+    std::map<std::string, t_uindex> m_ridxs;
 
     col(std::shared_ptr<t_data_table> data_table);
 
-    T next(std::shared_ptr<t_column> column);
+    ~col();
+
+    T next(std::shared_ptr<t_column> column, const std::string& column_name);
 
     T operator()(t_parameter_list parameters);
 };
@@ -55,22 +58,24 @@ struct col : public exprtk::igeneric_function<T> {
 
 class PERSPECTIVE_EXPORT t_computed_expression {
 public:
+    static void init();
+
     static void compute(
         const std::string& expression,
-        std::shared_ptr<t_data_table> data_table,
-        const std::vector<std::string>& input_column_names,
-        const std::vector<std::shared_ptr<t_column>> input_columns,
-        std::shared_ptr<t_column> output_column
+        std::shared_ptr<t_data_table> data_table);
+    
+    static void recompute(
+        const std::string& expression,
+        std::shared_ptr<t_data_table> tbl,
+        std::shared_ptr<t_data_table> flattened,
+        const std::vector<t_rlookup>& changed_rows);
+
+    static std::string validate(
+        const std::string& expression
     );
 
-    static void generate_functions();
-
     static std::shared_ptr<exprtk::parser<double>> NUMERIC_PARSER;
-
-    // store all UDFs here, eventually - once we can separate state from
-    // functions like col()
-    static exprtk::symbol_table<double> FUNCTION_SYMTABLE;
-    static computed_expression::col<double> COL_FUNCTION;
+    // static std::shared_ptr<exprtk::parser<t_tscalar>> SCALAR_PARSER;
 };
 
 } // end namespace perspective

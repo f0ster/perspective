@@ -583,7 +583,8 @@ if (PSP_WASM_BUILD)
 	target_compile_definitions(psp PRIVATE PSP_ENABLE_WASM=1)
 	set_target_properties(psp PROPERTIES COMPILE_FLAGS "")
 
-	# Precompile exprtk header
+	# Precompile exprtk header - this doesn't seem to actually add much
+	# in terms of performance lol
 	target_precompile_headers(psp PRIVATE ${PSP_CPP_SRC}/src/include/perspective/exprtk.h)
 	target_link_libraries(psp arrow)
 

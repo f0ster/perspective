@@ -154,7 +154,8 @@ export default function(Module) {
             this.view_config.column_pivots.length === 0 &&
             this.view_config.filter.length === 0 &&
             this.view_config.sort.length === 0 &&
-            this.view_config.computed_columns.length === 0;
+            this.view_config.computed_columns.length === 0 &&
+            this.view_config.expressions.length === 0;
 
         if (this.is_unit_context) {
             this._View = __MODULE__.make_view_unit(table._Table, name, defaults.COLUMN_SEPARATOR_STRING, this.view_config, null);
@@ -983,8 +984,8 @@ export default function(Module) {
         this.columns = config.columns;
         this.filter = config.filter || [];
         this.sort = config.sort || [];
+        this.expressions = config.expressions || [];
         this.computed_columns = config.computed_columns || [];
-        this.compute = config.compute || [];
         this.filter_op = config.filter_op || "and";
         this.row_pivot_depth = config.row_pivot_depth;
         this.column_pivot_depth = config.column_pivot_depth;
@@ -1043,6 +1044,11 @@ export default function(Module) {
             vector.push_back(computed_vector);
         }
         return vector;
+    };
+
+    view_config.prototype.get_expressions = function() {
+        let vector = __MODULE__.make_string_vector();
+        return fill_vector(vector, this.expressions);
     };
 
     /***************************************************************************
@@ -1408,10 +1414,25 @@ export default function(Module) {
         config.filter = config.filter || [];
         config.sort = config.sort || [];
         config.computed_columns = config.computed_columns || [];
+        config.expressions = config.expressions || [];
+
+        if (config.expressions.length > 0) {
+            let validated_expressions = [];
+            for (let expr of config.expressions) {
+                if (expr.includes("$''")) {
+                    throw new Error("Expression cannot reference empty column $''!");
+                }
+
+                validated_expressions.push(expr.replace(/\$'(.+?[^\\])'/g, (_, p1) => `col('${p1}')`));
+            }
+
+            config.expressions = validated_expressions;
+        }
 
         if (config.columns === undefined) {
             // If columns are not provided, use all columns
             config.columns = this.columns();
+
             if (config.computed_columns.length > 0) {
                 for (let col of config.computed_columns) {
                     config.columns.push(col.column);

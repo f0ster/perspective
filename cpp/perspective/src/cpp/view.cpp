@@ -53,6 +53,7 @@ View<CTX_T>::View(
     m_filter = m_view_config->get_fterm();
     m_sort = m_view_config->get_sortspec();
     m_computed_columns = m_view_config->get_computed_columns();
+    m_expressions = m_view_config->get_expressions();
 
     // Add hidden columns used in sorts to the `m_hidden_sort` vector.
     if (m_sort.size() > 0) {
@@ -813,6 +814,12 @@ template <typename CTX_T>
 std::vector<t_computed_column_definition>
 View<CTX_T>::get_computed_columns() const {
     return m_computed_columns;
+}
+
+template <typename CTX_T>
+std::vector<std::string>
+View<CTX_T>::get_expressions() const {
+    return m_expressions;
 }
 
 template <>
