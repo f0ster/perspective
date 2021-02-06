@@ -55,6 +55,10 @@ t_view_config::validate(std::shared_ptr<t_schema> schema) {
         computed_column_names.insert(std::get<0>(c));
     }
 
+    for (const auto& expr : m_expressions) {
+        computed_column_names.insert(expr);
+    }
+
     for (const std::string& col : m_columns) {
         if (!schema->has_column(col) && computed_column_names.count(col) == 0) {
             std::stringstream ss;
