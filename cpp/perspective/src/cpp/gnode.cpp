@@ -339,6 +339,11 @@ t_gnode::_process_table(t_uindex port_id) {
         _process_state.m_flattened_data_table,
         _process_state.m_lookup);
 
+    _recompute(
+        get_table_sptr(),
+        _process_state.m_flattened_data_table,
+        _process_state.m_lookup);
+
     // Clear delta, prev, current, transitions, existed on EACH call.
     _process_state.clear_transitional_data_tables();
 
@@ -916,8 +921,13 @@ t_gnode::_register_context(const std::string& name, t_ctx_type type, std::int64_
     // When a context is registered, compute its columns on the master table
     // so the columns will exist when updates, etc. are processed.
     std::shared_ptr<t_data_table> gstate_table = get_table_sptr();
+
     for (const auto& computed : computed_columns) {
         _add_computed_column(computed, gstate_table);
+    }
+
+    for (const std::string& expr : expressions) {
+        gstate_table->add_column_sptr(expr, DTYPE_FLOAT64, true);
     }
 }
 

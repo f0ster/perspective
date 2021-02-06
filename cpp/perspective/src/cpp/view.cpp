@@ -361,6 +361,14 @@ View<CTX_T>::computed_schema() const {
         }
     }
 
+    for (const auto& expr : m_expressions) {
+        new_schema[expr] = "float";
+
+        if (m_row_pivots.size() > 0 && !is_column_only()) {
+            new_schema[expr] = _map_aggregate_types(expr, new_schema[expr]);
+        }
+    }
+
     return new_schema;
 }
 
@@ -386,6 +394,11 @@ View<t_ctx0>::computed_schema() const {
     for (const auto& c : m_computed_columns) {
         std::string name = std::get<0>(c);
         new_schema[name] = dtype_to_str(types[name]);
+    }
+
+    // TODO: remove the old computed API
+    for (const auto& expr : m_expressions) {
+        new_schema[expr] = "float";
     }
 
     return new_schema;

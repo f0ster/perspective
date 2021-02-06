@@ -88,8 +88,6 @@ T computed_expression::col<T>::operator()(t_parameter_list parameters) {
     t_string_view param = t_string_view(parameters[0]);
     std::string column_name(param.begin(), param.size());
 
-    std::cout << "cname '" << column_name << "'" << std::endl;
-
     if (m_columns.count(column_name) == 1) {
         auto column = m_columns[column_name];
         return next(column, column_name);
@@ -123,6 +121,7 @@ void
 t_computed_expression::compute(
     const std::string& expression,
     std::shared_ptr<t_data_table> data_table) {
+    auto start = std::chrono::high_resolution_clock::now(); 
     exprtk::symbol_table<double> sym_table;
 
     // register the data table with col() so it can grab values from
@@ -135,7 +134,7 @@ t_computed_expression::compute(
 
     if (!t_computed_expression::NUMERIC_PARSER->compile(expression, expr_definition)) {
         std::stringstream ss;
-        ss << "Failed to parse expression: `"
+        ss << "[compute] Failed to parse expression: `"
             << expression
             << "`, failed with error: "
             << t_computed_expression::NUMERIC_PARSER->error().c_str()
@@ -152,13 +151,15 @@ t_computed_expression::compute(
         double value = expr_definition.value();
 
         if (std::isnan(value)) {
-            output_column->clear(ridx);
+            output_column->unset(ridx);
         } else {
             output_column->set_nth<double>(ridx, value);
         }
     }
 
-    output_column->pprint();
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); 
+    std::cout << "exprtk: " << duration.count() << std::endl;
 };
 
 void
@@ -167,59 +168,62 @@ t_computed_expression::recompute(
     std::shared_ptr<t_data_table> tbl,
     std::shared_ptr<t_data_table> flattened,
     const std::vector<t_rlookup>& changed_rows) {
-    // t_uindex num_rows = changed_rows.size();
+    auto start = std::chrono::high_resolution_clock::now(); 
+    exprtk::symbol_table<double> sym_table;
 
-    // if (num_rows == 0) {
-    //     num_rows = tbl->size();
-    // }
+    // register the data table with col() so it can grab values from
+    // each column.
+    computed_expression::col<double> col_fn(tbl);
+    sym_table.add_function("col", col_fn);
 
-    // exprtk::symbol_table<double> sym_table;
-    // exprtk::symbol_table<t_tscalar> sym_table2;
+    exprtk::expression<double> expr_definition;
+    expr_definition.register_symbol_table(sym_table);
 
-    // // register the data table with col() so it can grab values from
-    // // each column.
-    // computed_expression::col<double> col_fn(data_table);
-    // sym_table.add_function("col", col_fn);
+    if (!t_computed_expression::NUMERIC_PARSER->compile(expression, expr_definition)) {
+        std::stringstream ss;
+        ss << "[recompute] Failed to parse expression: `"
+            << expression
+            << "`, failed with error: "
+            << t_computed_expression::NUMERIC_PARSER->error().c_str()
+            << std::endl;
 
-    // exprtk::expression<double> expr_definition;
-    // expr_definition.register_symbol_table(sym_table);
-
-    // if (!t_computed_expression::NUMERIC_PARSER->compile(expression, expr_definition)) {
-    //     std::stringstream ss;
-    //     ss << "Failed to parse expression: `"
-    //         << expression
-    //         << "`, failed with error: "
-    //         << t_computed_expression::NUMERIC_PARSER->error().c_str()
-    //         << std::endl;
-
-    //     PSP_COMPLAIN_AND_ABORT(ss.str());
-    // }
-    
-    // // create or get output column
-    // auto output_column = flattened->add_column_sptr(expression, t_dtype::DTYPE_FLOAT64, true);
-    // output_column.reserve(flattened->size());
-
-    // for (t_uindex ridx = 0; ridx < num_rows; ++ridx) {
-    //     bool row_already_exists = false;
-    //     t_uindex ridx = idx;
-
-    //     // Look up the changed row index, and whether the row already exists
-    //     if (changed_rows.size() > 0) {
-    //         ridx = changed_rows[idx].m_idx;
-    //         row_already_exists = changed_rows[idx].m_exists;
-    //     }
-
-
-    //     double value = expr_definition.value();
-
-    //     if (std::isnan(value)) {
-    //         output_column->clear(ridx);
-    //     } else {
-    //         output_column->set_nth<double>(ridx, value);
-    //     }
-    // }
-
-    // output_column->pprint();
+        PSP_COMPLAIN_AND_ABORT(ss.str());
     }
+    
+    // create or get output column
+    auto output_column = flattened->add_column_sptr(expression, t_dtype::DTYPE_FLOAT64, true);
+    output_column->reserve(tbl->size());
+
+    t_uindex num_rows = changed_rows.size();
+
+    if (num_rows == 0) {
+        num_rows = tbl->size();
+    } 
+
+    for (t_uindex idx = 0; idx < num_rows; ++idx) {
+        bool row_already_exists = false;
+        t_uindex ridx = idx;
+
+        if (changed_rows.size() > 0) {
+            ridx = changed_rows[idx].m_idx;
+            row_already_exists = changed_rows[idx].m_exists;
+        }
+
+        // TODO: implement unsetting computed output col when an update comes
+        // in and nullifies out one of the values.
+
+        double value = expr_definition.value();
+
+        if (std::isnan(value)) {
+            output_column->unset(ridx);
+        } else {
+            output_column->set_nth<double>(ridx, value);
+        }
+    }
+
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); 
+    std::cout << "recompute exprtk: " << duration.count() << std::endl;
+}
 
 } // end namespace perspective

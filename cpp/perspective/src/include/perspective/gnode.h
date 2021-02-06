@@ -460,7 +460,6 @@ t_gnode::notify_context(CTX_T* ctx, const t_data_table& flattened, const t_data_
     const t_data_table& prev, const t_data_table& current, const t_data_table& transitions,
     const t_data_table& existed) {
     auto ctx_config = ctx->get_config();
-    auto computed_columns = ctx_config.get_computed_columns();
 
     ctx->step_begin();
     // Flattened has the computed columns at this point, as it has
