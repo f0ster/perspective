@@ -11,7 +11,7 @@
     ],
     "scripts": {
         "build": "yarn emsdk-run node ./build.js",
-        "clean": "rimraf dist/cpp/build",
+        "clean": "rimraf dist",
         "test": ":",
         "test:run": ":",
         "test:build": ":"

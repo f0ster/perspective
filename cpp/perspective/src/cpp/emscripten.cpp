@@ -1486,6 +1486,11 @@ namespace binding {
             }
         }
 
+        for (const std::string& expression : expressions) {
+            // TODO: figure out types
+            schema->add_column(expression, DTYPE_FLOAT64);
+        }
+
         // create the `t_view_config`
         auto view_config = std::make_shared<t_view_config>(
             row_pivots,
