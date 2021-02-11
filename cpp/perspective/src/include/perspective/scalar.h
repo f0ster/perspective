@@ -110,20 +110,26 @@ struct PERSPECTIVE_EXPORT t_tscalar {
     bool operator>=(const t_tscalar& rhs) const;
     bool operator<=(const t_tscalar& rhs) const;
 
+    t_tscalar operator+() const;
+    t_tscalar operator-() const;
+
     t_tscalar operator+(const t_tscalar& other) const;
     t_tscalar operator-(const t_tscalar& other) const;
     t_tscalar operator*(const t_tscalar& other) const;
     t_tscalar operator/(const t_tscalar& other) const;
+    t_tscalar operator%(const t_tscalar& other) const;
 
     template <typename T> t_tscalar operator+(T other) const;
     template <typename T> t_tscalar operator-(T other) const;
     template <typename T> t_tscalar operator*(T other) const;
     template <typename T> t_tscalar operator/(T other) const;
+    template <typename T> t_tscalar operator%(T other) const;
     
     t_tscalar& operator+=(const t_tscalar& rhs);
     t_tscalar& operator-=(const t_tscalar& rhs);
     t_tscalar& operator*=(const t_tscalar& rhs);
     t_tscalar& operator/=(const t_tscalar& rhs);
+    t_tscalar& operator%=(const t_tscalar& rhs);
 
     bool is_numeric() const;
 

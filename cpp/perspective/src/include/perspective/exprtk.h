@@ -154,14 +154,68 @@ inline bool string_to_real(Iterator& itr_external, const Iterator end, t_tscalar
 
 // exprtk needs to be imported after the type tags have been declared.
 #define exprtk_disable_rtl_io_file
-#define exprtk_disable_enhanced_features
-#define exprtk_enable_debugging
 #include <exprtk.hpp>
 
 namespace exprtk {
 namespace details {
 namespace numeric {
 namespace details {
+
+#define UNARY_STD_FUNCTION_BODY(FUNC)                                                                    \
+    switch (v.get_dtype()) {                                                                             \
+        case perspective::t_dtype::DTYPE_INT64: return mktscalar(std::FUNC(v.get<std::int64_t>()));      \
+        case perspective::t_dtype::DTYPE_INT32: return mktscalar(std::FUNC(v.get<std::int32_t>()));      \
+        case perspective::t_dtype::DTYPE_INT16: return mktscalar(std::FUNC(v.get<std::int16_t>()));      \
+        case perspective::t_dtype::DTYPE_INT8: return mktscalar(std::FUNC(v.get<std::int8_t>()));        \
+        case perspective::t_dtype::DTYPE_UINT64: return mktscalar(std::FUNC(v.get<std::uint64_t>()));    \
+        case perspective::t_dtype::DTYPE_UINT32: return mktscalar(std::FUNC(v.get<std::uint32_t>()));    \
+        case perspective::t_dtype::DTYPE_UINT16: return mktscalar(std::FUNC(v.get<std::uint16_t>()));    \
+        case perspective::t_dtype::DTYPE_UINT8: return mktscalar(std::FUNC(v.get<std::uint8_t>()));      \
+        case perspective::t_dtype::DTYPE_FLOAT64: return mktscalar(std::FUNC(v.get<double>()));          \
+        case perspective::t_dtype::DTYPE_FLOAT32: return mktscalar(std::FUNC(v.get<float>()));           \
+        default: return mknone();                                                                        \
+    }                                                                                                    \
+
+/**
+ * @brief a function that returns none for all types besides float.
+ * 
+ */
+#define UNARY_STD_INT_FUNCTION_BODY(FUNC)                                                                \
+    switch (v.get_dtype()) {                                                                             \
+        case perspective::t_dtype::DTYPE_FLOAT64: return mktscalar(std::FUNC(v.get<double>()));          \
+        case perspective::t_dtype::DTYPE_FLOAT32: return mktscalar(std::FUNC(v.get<float>()));           \
+        default: return mknone();                                                                        \
+    }                                                                                                    \
+
+#define BINARY_STD_FUNCTION_INNER(V0_TYPE, FUNC)                                                                           \
+    switch (v1.get_dtype()) {                                                                                              \
+        case perspective::t_dtype::DTYPE_INT64: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::int64_t>()));      \
+        case perspective::t_dtype::DTYPE_INT32: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::int32_t>()));      \
+        case perspective::t_dtype::DTYPE_INT16: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::int16_t>()));      \
+        case perspective::t_dtype::DTYPE_INT8: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::int8_t>()));        \
+        case perspective::t_dtype::DTYPE_UINT64: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::uint64_t>()));    \
+        case perspective::t_dtype::DTYPE_UINT32: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::uint32_t>()));    \
+        case perspective::t_dtype::DTYPE_UINT16: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::uint16_t>()));    \
+        case perspective::t_dtype::DTYPE_UINT8: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::uint8_t>()));      \
+        case perspective::t_dtype::DTYPE_FLOAT64: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<double>()));          \
+        case perspective::t_dtype::DTYPE_FLOAT32: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<float>()));           \
+        default: return mknone();                                                                                          \
+    }                                                                                                                      \
+
+#define BINARY_STD_FUNCTION_BODY(FUNC)                                                            \
+    switch (v0.get_dtype()) {                                                                     \
+        case perspective::t_dtype::DTYPE_INT64: BINARY_STD_FUNCTION_INNER(std::int64_t, FUNC)     \
+        case perspective::t_dtype::DTYPE_INT32: BINARY_STD_FUNCTION_INNER(std::int32_t, FUNC)     \
+        case perspective::t_dtype::DTYPE_INT16: BINARY_STD_FUNCTION_INNER(std::int16_t, FUNC)     \
+        case perspective::t_dtype::DTYPE_INT8: BINARY_STD_FUNCTION_INNER(std::int8_t, FUNC)       \
+        case perspective::t_dtype::DTYPE_UINT64: BINARY_STD_FUNCTION_INNER(std::int64_t, FUNC)    \
+        case perspective::t_dtype::DTYPE_UINT32: BINARY_STD_FUNCTION_INNER(std::int32_t, FUNC)    \
+        case perspective::t_dtype::DTYPE_UINT16: BINARY_STD_FUNCTION_INNER(std::int16_t, FUNC)    \
+        case perspective::t_dtype::DTYPE_UINT8: BINARY_STD_FUNCTION_INNER(std::int8_t, FUNC)      \
+        case perspective::t_dtype::DTYPE_FLOAT64: BINARY_STD_FUNCTION_INNER(double, FUNC)         \
+        case perspective::t_dtype::DTYPE_FLOAT32: BINARY_STD_FUNCTION_INNER(float, FUNC)          \
+        default: return mknone();                                                                 \
+    }                                                                                             \
 
 struct t_tscalar_type_tag {};
 
@@ -171,29 +225,28 @@ struct number_type<t_tscalar> {
     number_type() {}
 };
 
-template <> inline t_tscalar const_pi_impl(t_tscalar_type_tag) {
+template <>
+inline t_tscalar const_pi_impl(t_tscalar_type_tag) {
     t_tscalar rval;
-    // rval.set(exprtk::details::constant::pi);
-    rval.set(0.0);
+    rval.set(constant::pi);
     return rval;
 };
 
 template <>
 inline t_tscalar const_e_impl(t_tscalar_type_tag) {
     t_tscalar rval;
-    // rval.set(exprtk::details::constant::e);
-    rval.set(0.0);
+    rval.set(constant::e);
     return rval;
 };
 
 template <>
-struct epsilon_type<t_tscalar_type_tag> {
+struct epsilon_type<t_tscalar> {
     static inline t_tscalar value() {
         t_tscalar rval;
-        rval.set(0.0);
+        rval.set(0.0000000001);
         return rval;
     }
-};
+};    
 
 inline bool is_nan_impl(const t_tscalar& v, t_tscalar_type_tag) {
     return v.is_nan();
@@ -201,12 +254,36 @@ inline bool is_nan_impl(const t_tscalar& v, t_tscalar_type_tag) {
 
 template <>
 inline int to_int32_impl(const t_tscalar& v, t_tscalar_type_tag) {
-    return static_cast<int>(0);
+    switch (v.get_dtype()) {
+        case perspective::t_dtype::DTYPE_INT64: return static_cast<int>(v.get<std::int64_t>());
+        case perspective::t_dtype::DTYPE_INT32: return static_cast<int>(v.get<std::int32_t>());
+        case perspective::t_dtype::DTYPE_INT16: return static_cast<int>(v.get<std::int16_t>());
+        case perspective::t_dtype::DTYPE_INT8: return static_cast<int>(v.get<std::int8_t>());
+        case perspective::t_dtype::DTYPE_UINT64: return static_cast<int>(v.get<std::uint64_t>());
+        case perspective::t_dtype::DTYPE_UINT32: return static_cast<int>(v.get<std::uint32_t>());
+        case perspective::t_dtype::DTYPE_UINT16: return static_cast<int>(v.get<std::uint16_t>());
+        case perspective::t_dtype::DTYPE_UINT8: return static_cast<int>(v.get<std::uint8_t>());
+        case perspective::t_dtype::DTYPE_FLOAT64: return static_cast<int>(v.get<double>());
+        case perspective::t_dtype::DTYPE_FLOAT32: return static_cast<int>(v.get<float>());
+        default: return 0;
+    }
 }
 
 template <>
 inline long long int to_int64_impl(const t_tscalar& v, t_tscalar_type_tag) {
-    return static_cast<long long int>(0);
+    switch (v.get_dtype()) {
+        case perspective::t_dtype::DTYPE_INT64: return v.get<std::int64_t>();
+        case perspective::t_dtype::DTYPE_INT32: return v.get<std::int32_t>();
+        case perspective::t_dtype::DTYPE_INT16: return v.get<std::int16_t>();
+        case perspective::t_dtype::DTYPE_INT8: return v.get<std::int8_t>();
+        case perspective::t_dtype::DTYPE_UINT64: return v.get<std::uint64_t>();
+        case perspective::t_dtype::DTYPE_UINT32: return v.get<std::uint32_t>();
+        case perspective::t_dtype::DTYPE_UINT16: return v.get<std::uint16_t>();
+        case perspective::t_dtype::DTYPE_UINT8: return v.get<std::uint8_t>();
+        case perspective::t_dtype::DTYPE_FLOAT64: return v.get<double>();
+        case perspective::t_dtype::DTYPE_FLOAT32: return v.get<float>();
+        default: return 0;
+    }
 }
 
 // template <>
@@ -268,32 +345,32 @@ inline long long int to_int64_impl(const t_tscalar& v, t_tscalar_type_tag) {
  * Unary functions
  */
 template <> inline t_tscalar abs_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar acos_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
+template <> inline t_tscalar acos_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_INT_FUNCTION_BODY(acos) }
 template <> inline t_tscalar acosh_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar asin_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
+template <> inline t_tscalar asin_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_INT_FUNCTION_BODY(asin) }
 template <> inline t_tscalar asinh_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar atan_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
+template <> inline t_tscalar atan_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_INT_FUNCTION_BODY(atan) }
 template <> inline t_tscalar atanh_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar ceil_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar cos_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar cosh_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar exp_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
+template <> inline t_tscalar ceil_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_FUNCTION_BODY(ceil) }
+template <> inline t_tscalar cos_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_INT_FUNCTION_BODY(cos) }
+template <> inline t_tscalar cosh_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_INT_FUNCTION_BODY(cosh) }
+template <> inline t_tscalar exp_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_FUNCTION_BODY(exp) }
 template <> inline t_tscalar expm1_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar floor_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar log_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar log10_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
+template <> inline t_tscalar floor_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_FUNCTION_BODY(floor) }
+template <> inline t_tscalar log_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_FUNCTION_BODY(log) }
+template <> inline t_tscalar log10_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_FUNCTION_BODY(log10) }
 template <> inline t_tscalar log2_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
 template <> inline t_tscalar log1p_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar neg_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar round_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar pos_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
+template <> inline t_tscalar neg_impl(const t_tscalar v, t_tscalar_type_tag) { return -v; }
+template <> inline t_tscalar round_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_FUNCTION_BODY(round) }
+template <> inline t_tscalar pos_impl(const t_tscalar v, t_tscalar_type_tag) { return +v; }
 template <> inline t_tscalar sgn_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar sin_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
+template <> inline t_tscalar sin_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_INT_FUNCTION_BODY(sin) }
 template <> inline t_tscalar sinc_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar sinh_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar sqrt_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar tan_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar tanh_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
+template <> inline t_tscalar sinh_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_INT_FUNCTION_BODY(sinh) }
+template <> inline t_tscalar sqrt_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_FUNCTION_BODY(sqrt) }
+template <> inline t_tscalar tan_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_INT_FUNCTION_BODY(tan) }
+template <> inline t_tscalar tanh_impl(const t_tscalar v, t_tscalar_type_tag) { UNARY_STD_INT_FUNCTION_BODY(tanh) }
 template <> inline t_tscalar cot_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
 template <> inline t_tscalar sec_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
 template <> inline t_tscalar csc_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
@@ -303,7 +380,22 @@ template <> inline t_tscalar d2g_impl(const t_tscalar v, t_tscalar_type_tag) { r
 template <> inline t_tscalar g2d_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
 template <> inline t_tscalar notl_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
 template <> inline t_tscalar frac_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar trunc_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
+template <> inline t_tscalar trunc_impl(const t_tscalar v, t_tscalar_type_tag) {
+    // TODO: this is used in vector construction and doesn't work for some reason.
+    switch (v.get_dtype()) {
+        case perspective::t_dtype::DTYPE_INT64: return mktscalar(v.get<std::int64_t>());
+        case perspective::t_dtype::DTYPE_INT32: return mktscalar(static_cast<std::int64_t>(v.get<std::int32_t>()));
+        case perspective::t_dtype::DTYPE_INT16: return mktscalar(static_cast<std::int64_t>(v.get<std::int16_t>()));
+        case perspective::t_dtype::DTYPE_INT8: return mktscalar(static_cast<std::int64_t>(v.get<std::int8_t>()));
+        case perspective::t_dtype::DTYPE_UINT64: return mktscalar(static_cast<std::int64_t>(v.get<std::uint64_t>()));
+        case perspective::t_dtype::DTYPE_UINT32: return mktscalar(static_cast<std::int64_t>(v.get<std::uint32_t>()));
+        case perspective::t_dtype::DTYPE_UINT16: return mktscalar(static_cast<std::int64_t>(v.get<std::uint16_t>()));
+        case perspective::t_dtype::DTYPE_UINT8: return mktscalar(static_cast<std::int64_t>(v.get<std::uint8_t>()));
+        case perspective::t_dtype::DTYPE_FLOAT64: return mktscalar(static_cast<std::int64_t>(v.get<double>()));
+        case perspective::t_dtype::DTYPE_FLOAT32: return mktscalar(static_cast<std::int64_t>(v.get<float>()));
+        default: return mknone();
+    }
+}
 template <> inline t_tscalar erf_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
 template <> inline t_tscalar erfc_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
 template <> inline t_tscalar ncdf_impl(const t_tscalar v, t_tscalar_type_tag) { return mktscalar(0); }
@@ -313,8 +405,8 @@ template <> inline t_tscalar ncdf_impl(const t_tscalar v, t_tscalar_type_tag) { 
  *
  * Binary functions
  */
-template <> inline t_tscalar min_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar max_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return mktscalar(0); }
+template <> inline t_tscalar min_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return (v1 < v0) ? v1 : v0; }
+template <> inline t_tscalar max_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return (v1 > v0) ? v1 : v0;  }
 template <> inline t_tscalar equal_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return mktscalar(0); }
 template <> inline t_tscalar nequal_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return mktscalar(0); }
 template <> inline t_tscalar modulus_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return mktscalar(0); }
@@ -335,15 +427,18 @@ template <> inline t_tscalar xor_impl(const t_tscalar v0, const t_tscalar v1, t_
 
 template <> inline bool is_integer_impl(const t_tscalar& v, t_tscalar_type_tag) { return true; };
 
+#undef UNARY_STD_FUNCTION_BODY
+#undef UNARY_STD_INT_FUNCTION_BODY
+
 } // end namespace details
 } // end namespace numeric
 
 inline bool is_true (const t_tscalar& v) {
-    return v.is_valid() && !v.is_none();
-};
+    return static_cast<bool>(v);
+}
 
 inline bool is_false(const t_tscalar& v) {
-    return !v.is_valid() || v.is_none();
+    return !is_true(v);
 };
 /******************************************************************************
  *
@@ -546,7 +641,8 @@ inline bool string_to_real(Iterator& itr_external, const Iterator end, t_tscalar
 
     Iterator itr = itr_external;
 
-    t_tscalar d(0);
+    t_tscalar d;
+    d.set(0.0); // FIXME: always float, for now
 
     const bool negative = ('-' == (*itr));
 

@@ -94,6 +94,9 @@ t_computed_expression::compute(
     std::shared_ptr<t_data_table> data_table) {
     auto start = std::chrono::high_resolution_clock::now(); 
     exprtk::symbol_table<t_tscalar> sym_table;
+    t_tscalar pi;
+    pi.set(3.14159265358979323846264338327950288419716939937510); // hack
+    sym_table.add_constant("pi", pi);
 
     // register the data table with col() so it can grab values from
     // each column.
@@ -143,6 +146,9 @@ t_computed_expression::recompute(
     const std::vector<t_rlookup>& changed_rows) {
     auto start = std::chrono::high_resolution_clock::now(); 
     exprtk::symbol_table<t_tscalar> sym_table;
+    t_tscalar pi;
+    pi.set(3.14159265358979323846264338327950288419716939937510); // hack
+    sym_table.add_constant("pi", pi);
 
     // register the data table with col() so it can grab values from
     // each column.
