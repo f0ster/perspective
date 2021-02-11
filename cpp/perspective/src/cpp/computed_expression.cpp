@@ -14,6 +14,9 @@ namespace perspective {
 std::shared_ptr<exprtk::parser<double>>
 t_computed_expression::NUMERIC_PARSER = std::make_shared<exprtk::parser<double>>();
 
+std::shared_ptr<exprtk::parser<t_tscalar>>
+t_computed_expression::PARSER = std::make_shared<exprtk::parser<t_tscalar>>();
+
 template <typename T>
 computed_expression::col<T>::col(std::shared_ptr<t_data_table> data_table)
         : m_data_table(data_table)
@@ -37,41 +40,9 @@ t_tscalar computed_expression::col<t_tscalar>::next(
     std::shared_ptr<t_column> column,
     const std::string& column_name) {
     t_uindex ridx = m_ridxs[column_name];
-    return column->get_scalar(ridx);
-}
-
-template <>
-double computed_expression::col<double>::next(
-    std::shared_ptr<t_column> column,
-    const std::string& column_name) {
-    // will always return a valid scalar
-    t_uindex ridx = m_ridxs[column_name];
-    t_tscalar scalar = column->get_scalar(ridx);
-    bool valid = column->is_valid(ridx);
+    t_tscalar rval = column->get_scalar(ridx);
     m_ridxs[column_name] += 1;
-
-    if (!valid || scalar.is_none()) {
-        return NAN;
-    } else {
-        return scalar.get<double>();
-    }
-}
-
-template <>
-std::string computed_expression::col<std::string>::next(
-    std::shared_ptr<t_column> column,
-    const std::string& column_name) {
-    // will always return a valid scalar
-    t_uindex ridx = m_ridxs[column_name];
-    t_tscalar scalar = column->get_scalar(ridx);
-    bool valid = column->is_valid(ridx);
-    m_ridxs[column_name] += 1;
-
-    if (!valid || scalar.is_none()) {
-        return "";
-    }  else {
-        return scalar.get<std::string>();
-    }
+    return rval;
 }
 
 template <typename T>
@@ -114,7 +85,7 @@ T computed_expression::col<T>::operator()(t_parameter_list parameters) {
 
 void
 t_computed_expression::init() {
-    t_computed_expression::NUMERIC_PARSER->enable_unknown_symbol_resolver();
+    //t_computed_expression::NUMERIC_PARSER->enable_unknown_symbol_resolver();
 }
 
 void
@@ -122,22 +93,22 @@ t_computed_expression::compute(
     const std::string& expression,
     std::shared_ptr<t_data_table> data_table) {
     auto start = std::chrono::high_resolution_clock::now(); 
-    exprtk::symbol_table<double> sym_table;
+    exprtk::symbol_table<t_tscalar> sym_table;
 
     // register the data table with col() so it can grab values from
     // each column.
-    computed_expression::col<double> col_fn(data_table);
+    computed_expression::col<t_tscalar> col_fn(data_table);
     sym_table.add_function("col", col_fn);
 
-    exprtk::expression<double> expr_definition;
+    exprtk::expression<t_tscalar> expr_definition;
     expr_definition.register_symbol_table(sym_table);
 
-    if (!t_computed_expression::NUMERIC_PARSER->compile(expression, expr_definition)) {
+    if (!t_computed_expression::PARSER->compile(expression, expr_definition)) {
         std::stringstream ss;
         ss << "[compute] Failed to parse expression: `"
             << expression
             << "`, failed with error: "
-            << t_computed_expression::NUMERIC_PARSER->error().c_str()
+            << t_computed_expression::PARSER->error().c_str()
             << std::endl;
 
         PSP_COMPLAIN_AND_ABORT(ss.str());
@@ -148,12 +119,14 @@ t_computed_expression::compute(
     output_column->reserve(data_table->size());
 
     for (t_uindex ridx = 0; ridx < data_table->size(); ++ridx) {
-        double value = expr_definition.value();
+        t_tscalar value = expr_definition.value();
+
+        std::cout << ridx << ": " << value << std::endl;
 
         if (std::isnan(value)) {
             output_column->unset(ridx);
         } else {
-            output_column->set_nth<double>(ridx, value);
+            output_column->set_scalar(ridx, value);
         }
     }
 
@@ -169,22 +142,22 @@ t_computed_expression::recompute(
     std::shared_ptr<t_data_table> flattened,
     const std::vector<t_rlookup>& changed_rows) {
     auto start = std::chrono::high_resolution_clock::now(); 
-    exprtk::symbol_table<double> sym_table;
+    exprtk::symbol_table<t_tscalar> sym_table;
 
     // register the data table with col() so it can grab values from
     // each column.
-    computed_expression::col<double> col_fn(tbl);
+    computed_expression::col<t_tscalar> col_fn(tbl);
     sym_table.add_function("col", col_fn);
 
-    exprtk::expression<double> expr_definition;
+    exprtk::expression<t_tscalar> expr_definition;
     expr_definition.register_symbol_table(sym_table);
 
-    if (!t_computed_expression::NUMERIC_PARSER->compile(expression, expr_definition)) {
+    if (!t_computed_expression::PARSER->compile(expression, expr_definition)) {
         std::stringstream ss;
         ss << "[recompute] Failed to parse expression: `"
             << expression
             << "`, failed with error: "
-            << t_computed_expression::NUMERIC_PARSER->error().c_str()
+            << t_computed_expression::PARSER->error().c_str()
             << std::endl;
 
         PSP_COMPLAIN_AND_ABORT(ss.str());
@@ -212,12 +185,14 @@ t_computed_expression::recompute(
         // TODO: implement unsetting computed output col when an update comes
         // in and nullifies out one of the values.
 
-        double value = expr_definition.value();
+        t_tscalar value = expr_definition.value();
+
+        std::cout << ridx << ": " << value << std::endl;
 
         if (std::isnan(value)) {
             output_column->unset(ridx);
         } else {
-            output_column->set_nth<double>(ridx, value);
+            output_column->set_scalar(ridx, value);
         }
     }
 

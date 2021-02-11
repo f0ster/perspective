@@ -13,15 +13,14 @@
 #include <perspective/base.h>
 #include <perspective/exports.h>
 #include <perspective/raw_types.h>
-#include <perspective/scalar.h>
 #include <perspective/column.h>
 #include <perspective/data_table.h>
 #include <perspective/rlookup.h>
 #include <date/date.h>
 
-// a precompiled header that includes exprtk.
+// a header that includes exprtk and overload definitions for `t_tscalar` so
+// it can be used inside exprtk.
 #include <perspective/exprtk.h>
-
 
 namespace perspective {
 namespace computed_expression {
@@ -70,12 +69,12 @@ public:
         std::shared_ptr<t_data_table> flattened,
         const std::vector<t_rlookup>& changed_rows);
 
-    static std::string validate(
+    static t_dtype get_expression_dtype(
         const std::string& expression
     );
 
     static std::shared_ptr<exprtk::parser<double>> NUMERIC_PARSER;
-    // static std::shared_ptr<exprtk::parser<t_tscalar>> SCALAR_PARSER;
+    static std::shared_ptr<exprtk::parser<t_tscalar>> PARSER;
 };
 
 } // end namespace perspective

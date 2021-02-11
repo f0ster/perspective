@@ -14,7 +14,6 @@
 #include <perspective/raw_types.h>
 #include <perspective/scalar.h>
 #include <perspective/computed.h>
-#include <perspective/computed_expression.h>
 #include <tsl/ordered_map.h>
 #include <unordered_set>
 #include <tuple>

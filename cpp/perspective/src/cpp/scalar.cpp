@@ -25,6 +25,97 @@ SUPPRESS_WARNINGS_VC(4800)
 
 namespace perspective {
 
+// Probably need to static cast inside set().
+#define BINARY_OPERATOR_INNER(FIELD, OP) \
+    switch (other.m_type) { \
+        case DTYPE_INT64: { \
+            rval.set(m_data.FIELD OP other.m_data.m_int64); \
+        } break; \
+        case DTYPE_INT32: { \
+            rval.set(m_data.FIELD OP other.m_data.m_int32); \
+        } break; \
+        case DTYPE_INT16: { \
+            rval.set(m_data.FIELD OP other.m_data.m_int16); \
+        } break; \
+        case DTYPE_INT8: { \
+            rval.set(m_data.FIELD OP other.m_data.m_int8); \
+        } break; \
+        case DTYPE_UINT64: { \
+            rval.set(m_data.FIELD OP other.m_data.m_uint64); \
+        } break; \
+        case DTYPE_UINT32: { \
+            rval.set(m_data.FIELD OP other.m_data.m_uint32); \
+        } break; \
+        case DTYPE_UINT16: { \
+            rval.set(m_data.FIELD OP other.m_data.m_uint16); \
+        } break; \
+        case DTYPE_UINT8: { \
+            rval.set(m_data.FIELD OP other.m_data.m_uint8); \
+        } break; \
+        case DTYPE_FLOAT64: { \
+            rval.set(m_data.FIELD OP other.m_data.m_float64); \
+        } break; \
+        case DTYPE_FLOAT32: { \
+            rval.set(m_data.FIELD OP other.m_data.m_float32); \
+        } break; \
+        default: {/* no-op */}  \
+    } \
+
+#define BINARY_OPERATOR_BODY(OP) \
+    t_tscalar rval; \
+    rval.clear(); \
+    rval.m_type = m_type; \
+    if (!other.is_valid()) return *this; \
+    if (!is_valid()) return other; \
+    if (m_type == DTYPE_NONE) { \
+        rval.set(other); \
+        return rval; \
+    } \
+    if (other.m_type == DTYPE_NONE) return *this; \
+    switch (m_type) { \
+        case DTYPE_INT64: { \
+            BINARY_OPERATOR_INNER(m_int64, OP) \
+        } break; \
+        case DTYPE_INT32: { \
+            BINARY_OPERATOR_INNER(m_int32, OP) \
+        } break; \
+        case DTYPE_INT16: { \
+            BINARY_OPERATOR_INNER(m_int16, OP) \
+        } break; \
+        case DTYPE_INT8: { \
+            BINARY_OPERATOR_INNER(m_int8, OP) \
+        } break; \
+        case DTYPE_UINT64: { \
+            BINARY_OPERATOR_INNER(m_uint64, OP) \
+        } break; \
+        case DTYPE_UINT32: { \
+            BINARY_OPERATOR_INNER(m_uint32, OP) \
+        } break; \
+        case DTYPE_UINT16: { \
+            BINARY_OPERATOR_INNER(m_uint16, OP) \
+        } break; \
+        case DTYPE_UINT8: { \
+            BINARY_OPERATOR_INNER(m_uint8, OP) \
+        } break; \
+        case DTYPE_FLOAT64: { \
+            BINARY_OPERATOR_INNER(m_float64, OP) \
+        } break; \
+        case DTYPE_FLOAT32: { \
+            BINARY_OPERATOR_INNER(m_float32, OP) \
+        } break; \
+        default: { /* no-op */ } \
+    } \
+    std::cout << "returning from " << #OP << " : " << rval << std::endl; \
+    return rval; \
+
+t_tscalar::t_tscalar(int x) {
+    std::cout << "from INT t_tscalar(" << x << ")" << std::endl;
+    // lol this is so bad - we will need better knowledge of exactly
+    // what the dtype is at every point in string_to_real, i.e. as soon as
+    // we know we are parsing an int let's flip the scalar to float.
+    this->set(static_cast<double>(x));
+}
+
 bool
 t_tscalar::is_none() const {
     return m_type == DTYPE_NONE;
@@ -77,6 +168,131 @@ t_tscalar::operator>=(const t_tscalar& rhs) const {
 bool
 t_tscalar::operator<=(const t_tscalar& rhs) const {
     return compare_common<std::less_equal>(rhs);
+}
+
+t_tscalar&
+t_tscalar::operator+=(const t_tscalar& rhs) {
+   return *this;
+}
+
+t_tscalar&
+t_tscalar::operator-=(const t_tscalar& rhs) {
+   return *this;
+}
+
+t_tscalar&
+t_tscalar::operator*=(const t_tscalar& rhs) {
+   return *this;
+}
+
+t_tscalar&
+t_tscalar::operator/=(const t_tscalar& rhs) {
+   return *this;
+}
+
+t_tscalar
+t_tscalar::operator+(const t_tscalar& other) const {
+    std::cout << *this << " + " << other << std::endl;
+    BINARY_OPERATOR_BODY(+)
+}
+
+t_tscalar
+t_tscalar::operator-(const t_tscalar& other) const {
+    std::cout << *this <<  " - " << other << std::endl;
+    BINARY_OPERATOR_BODY(-)
+}
+
+t_tscalar
+t_tscalar::operator*(const t_tscalar& other) const {
+    std::cout << *this << " * " << other << std::endl;
+    BINARY_OPERATOR_BODY(*)
+}
+
+t_tscalar
+t_tscalar::operator/(const t_tscalar& other) const {
+    std::cout << *this << " / " << other << std::endl;
+    BINARY_OPERATOR_BODY(/)
+}
+
+template <typename T>
+t_tscalar
+t_tscalar::operator+(T other) const {
+    std::cout << *this << " + (T) " << other << std::endl;
+    t_tscalar other_scalar;
+    other_scalar.set(other);
+    return this->operator+(other_scalar);
+}
+
+template <>
+t_tscalar
+t_tscalar::operator+(unsigned int other) const {
+    std::cout << *this << " + (unsigned int) " << other << std::endl;
+    t_tscalar other_scalar;
+    other_scalar.set(other);
+    return this->operator+(other_scalar);
+}
+
+template <typename T>
+t_tscalar
+t_tscalar::operator-(T other) const {
+    std::cout << *this << " - (T) " << other << std::endl;
+    t_tscalar other_scalar;
+    other_scalar.set(other);
+    return this->operator-(other_scalar);
+}
+
+template <typename T>
+t_tscalar
+t_tscalar::operator*(T other) const {
+    std::cout << *this << " * (T) " << other << std::endl;
+    t_tscalar other_scalar;
+    other_scalar.set(other);
+    return this->operator*(other_scalar);
+}
+
+template <>
+t_tscalar
+t_tscalar::operator*(int other) const {
+    std::cout << *this << " * (int) " << other << std::endl;
+    t_tscalar other_scalar;
+    other_scalar.set(other);
+    return this->operator*(other_scalar);
+}
+
+template <>
+t_tscalar
+t_tscalar::operator*(double other) const {
+    std::cout << *this << " * (double) " << other << std::endl;
+    t_tscalar other_scalar;
+    other_scalar.set(other);
+    return this->operator*(other_scalar);
+}
+
+template <typename T>
+t_tscalar
+t_tscalar::operator/(T other) const {
+    std::cout << *this << " / (T)" << other << std::endl;
+    t_tscalar other_scalar;
+    other_scalar.set(other);
+    return this->operator/(other_scalar);
+}
+
+template <>
+t_tscalar
+t_tscalar::operator/(unsigned long other) const {
+    std::cout << *this << " / (unsigned long) " << other << std::endl;
+    t_tscalar other_scalar;
+    other_scalar.set(static_cast<std::uint32_t>(other));
+    return this->operator/(other_scalar);
+}
+
+template <>
+t_tscalar
+t_tscalar::operator/(double other) const {
+    std::cout << *this << " / (double) " << other << std::endl;
+    t_tscalar other_scalar;
+    other_scalar.set(other);
+    return this->operator/(other_scalar);
 }
 
 bool
@@ -962,6 +1178,9 @@ t_tscalar::contains(const t_tscalar& other) const {
 
 std::string
 repr(const t_tscalar& s) {
+    std::cout << "repr dtype: ";
+    std::cout << s.get_dtype() << std::endl;
+    std::cout << std::boolalpha << s.is_valid() << std::endl;
     return s.to_string();
 }
 

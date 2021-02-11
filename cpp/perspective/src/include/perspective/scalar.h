@@ -65,6 +65,12 @@ union t_scalar_u {
 // t_scalar should remain a POD type.
 struct PERSPECTIVE_EXPORT t_tscalar {
 
+    t_tscalar() = default;
+
+    // Function-style cast to int required for exprtk
+    // FIXME: this would break POD
+    t_tscalar(int v);
+
     template <typename T>
     T get() const;
 
@@ -103,6 +109,21 @@ struct PERSPECTIVE_EXPORT t_tscalar {
     bool operator>(const t_tscalar& rhs) const;
     bool operator>=(const t_tscalar& rhs) const;
     bool operator<=(const t_tscalar& rhs) const;
+
+    t_tscalar operator+(const t_tscalar& other) const;
+    t_tscalar operator-(const t_tscalar& other) const;
+    t_tscalar operator*(const t_tscalar& other) const;
+    t_tscalar operator/(const t_tscalar& other) const;
+
+    template <typename T> t_tscalar operator+(T other) const;
+    template <typename T> t_tscalar operator-(T other) const;
+    template <typename T> t_tscalar operator*(T other) const;
+    template <typename T> t_tscalar operator/(T other) const;
+    
+    t_tscalar& operator+=(const t_tscalar& rhs);
+    t_tscalar& operator-=(const t_tscalar& rhs);
+    t_tscalar& operator*=(const t_tscalar& rhs);
+    t_tscalar& operator/=(const t_tscalar& rhs);
 
     bool is_numeric() const;
 
@@ -361,6 +382,7 @@ t_tscalar
 mktscalar(const T& v) {
     t_tscalar rval;
     rval.set(v);
+    std::cout << "made t_tscalar: " << rval.to_string() << std::endl; 
     return rval;
 }
 
@@ -382,4 +404,16 @@ struct hash<perspective::t_tscalar> {
 PERSPECTIVE_EXPORT std::ostream& operator<<(std::ostream& os, const perspective::t_tscalar& t);
 PERSPECTIVE_EXPORT std::ostream& operator<<(
     std::ostream& os, const std::vector<perspective::t_tscalar>& t);
+
+/**
+ * exprtk uses std::numeric_limits<T>::quiet_NaN() and min_exponent10.
+ */
+template<>
+class numeric_limits<perspective::t_tscalar> {
+    public:
+        static perspective::t_tscalar quiet_NaN() {
+            std::cout << "NAN called" << std::endl;
+            return perspective::mknone();
+        }
+};
 } // namespace std

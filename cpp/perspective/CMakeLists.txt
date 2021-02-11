@@ -255,9 +255,10 @@ if (PSP_WASM_BUILD)
 		set(OPT_FLAGS " \
 			-O3 \
 			-g0 \
-			-flto \
 			-s AGGRESSIVE_VARIABLE_ELIMINATION=1 \
 			")
+
+		# TODO: -flto
 	endif()
 
 	set(ASYNC_MODE_FLAGS "")
@@ -582,10 +583,6 @@ if (PSP_WASM_BUILD)
 	add_library(psp ${WASM_SOURCE_FILES})
 	target_compile_definitions(psp PRIVATE PSP_ENABLE_WASM=1)
 	set_target_properties(psp PROPERTIES COMPILE_FLAGS "")
-
-	# Precompile exprtk header - this doesn't seem to actually add much
-	# in terms of performance lol
-	target_precompile_headers(psp PRIVATE ${PSP_CPP_SRC}/src/include/perspective/exprtk.h)
 	target_link_libraries(psp arrow)
 
 	# "esm/erspective.cpp.js" from CMAKE_EXECUTABLE_SYNTAX
