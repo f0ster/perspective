@@ -421,5 +421,11 @@ class numeric_limits<perspective::t_tscalar> {
             std::cout << "NAN called" << std::endl;
             return perspective::mknone();
         }
+
+        static perspective::t_tscalar infinity() {
+            perspective::t_tscalar rval;
+            rval.set(std::numeric_limits<double>::infinity());
+            return rval;
+        }
 };
 } // namespace std

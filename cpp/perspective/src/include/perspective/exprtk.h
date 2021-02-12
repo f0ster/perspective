@@ -154,6 +154,7 @@ inline bool string_to_real(Iterator& itr_external, const Iterator end, t_tscalar
 
 // exprtk needs to be imported after the type tags have been declared.
 #define exprtk_disable_rtl_io_file
+#define exprtk_enable_debugging
 #include <exprtk.hpp>
 
 namespace exprtk {
@@ -163,16 +164,16 @@ namespace details {
 
 #define UNARY_STD_FUNCTION_BODY(FUNC)                                                                    \
     switch (v.get_dtype()) {                                                                             \
-        case perspective::t_dtype::DTYPE_INT64: return mktscalar(std::FUNC(v.get<std::int64_t>()));      \
-        case perspective::t_dtype::DTYPE_INT32: return mktscalar(std::FUNC(v.get<std::int32_t>()));      \
-        case perspective::t_dtype::DTYPE_INT16: return mktscalar(std::FUNC(v.get<std::int16_t>()));      \
-        case perspective::t_dtype::DTYPE_INT8: return mktscalar(std::FUNC(v.get<std::int8_t>()));        \
-        case perspective::t_dtype::DTYPE_UINT64: return mktscalar(std::FUNC(v.get<std::uint64_t>()));    \
-        case perspective::t_dtype::DTYPE_UINT32: return mktscalar(std::FUNC(v.get<std::uint32_t>()));    \
-        case perspective::t_dtype::DTYPE_UINT16: return mktscalar(std::FUNC(v.get<std::uint16_t>()));    \
-        case perspective::t_dtype::DTYPE_UINT8: return mktscalar(std::FUNC(v.get<std::uint8_t>()));      \
-        case perspective::t_dtype::DTYPE_FLOAT64: return mktscalar(std::FUNC(v.get<double>()));          \
-        case perspective::t_dtype::DTYPE_FLOAT32: return mktscalar(std::FUNC(v.get<float>()));           \
+        case perspective::t_dtype::DTYPE_INT64: return mktscalar(static_cast<double>(std::FUNC(v.get<std::int64_t>())));      \
+        case perspective::t_dtype::DTYPE_INT32: return mktscalar(static_cast<double>(std::FUNC(v.get<std::int32_t>())));      \
+        case perspective::t_dtype::DTYPE_INT16: return mktscalar(static_cast<double>(std::FUNC(v.get<std::int16_t>())));      \
+        case perspective::t_dtype::DTYPE_INT8: return mktscalar(static_cast<double>(std::FUNC(v.get<std::int8_t>())));        \
+        case perspective::t_dtype::DTYPE_UINT64: return mktscalar(static_cast<double>(std::FUNC(v.get<std::uint64_t>())));    \
+        case perspective::t_dtype::DTYPE_UINT32: return mktscalar(static_cast<double>(std::FUNC(v.get<std::uint32_t>())));    \
+        case perspective::t_dtype::DTYPE_UINT16: return mktscalar(static_cast<double>(std::FUNC(v.get<std::uint16_t>())));    \
+        case perspective::t_dtype::DTYPE_UINT8: return mktscalar(static_cast<double>(std::FUNC(v.get<std::uint8_t>())));      \
+        case perspective::t_dtype::DTYPE_FLOAT64: return mktscalar(static_cast<double>(std::FUNC(v.get<double>())));          \
+        case perspective::t_dtype::DTYPE_FLOAT32: return mktscalar(static_cast<double>(std::FUNC(v.get<float>())));           \
         default: return mknone();                                                                        \
     }                                                                                                    \
 
@@ -182,23 +183,23 @@ namespace details {
  */
 #define UNARY_STD_INT_FUNCTION_BODY(FUNC)                                                                \
     switch (v.get_dtype()) {                                                                             \
-        case perspective::t_dtype::DTYPE_FLOAT64: return mktscalar(std::FUNC(v.get<double>()));          \
-        case perspective::t_dtype::DTYPE_FLOAT32: return mktscalar(std::FUNC(v.get<float>()));           \
+        case perspective::t_dtype::DTYPE_FLOAT64: return mktscalar(static_cast<double>(std::FUNC(v.get<double>())));          \
+        case perspective::t_dtype::DTYPE_FLOAT32: return mktscalar(static_cast<double>(std::FUNC(v.get<float>())));           \
         default: return mknone();                                                                        \
     }                                                                                                    \
 
 #define BINARY_STD_FUNCTION_INNER(V0_TYPE, FUNC)                                                                           \
     switch (v1.get_dtype()) {                                                                                              \
-        case perspective::t_dtype::DTYPE_INT64: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::int64_t>()));      \
-        case perspective::t_dtype::DTYPE_INT32: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::int32_t>()));      \
-        case perspective::t_dtype::DTYPE_INT16: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::int16_t>()));      \
-        case perspective::t_dtype::DTYPE_INT8: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::int8_t>()));        \
-        case perspective::t_dtype::DTYPE_UINT64: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::uint64_t>()));    \
-        case perspective::t_dtype::DTYPE_UINT32: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::uint32_t>()));    \
-        case perspective::t_dtype::DTYPE_UINT16: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::uint16_t>()));    \
-        case perspective::t_dtype::DTYPE_UINT8: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<std::uint8_t>()));      \
-        case perspective::t_dtype::DTYPE_FLOAT64: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<double>()));          \
-        case perspective::t_dtype::DTYPE_FLOAT32: return mktscalar(std::FUNC(v0.get<V0_TYPE>, v1.get<float>()));           \
+        case perspective::t_dtype::DTYPE_INT64: return mktscalar(static_cast<double>(std::FUNC(v0.get<V0_TYPE>, v1.get<std::int64_t>())));      \
+        case perspective::t_dtype::DTYPE_INT32: return mktscalar(static_cast<double>(std::FUNC(v0.get<V0_TYPE>, v1.get<std::int32_t>())));      \
+        case perspective::t_dtype::DTYPE_INT16: return mktscalar(static_cast<double>(std::FUNC(v0.get<V0_TYPE>, v1.get<std::int16_t>())));      \
+        case perspective::t_dtype::DTYPE_INT8: return mktscalar(static_cast<double>(std::FUNC(v0.get<V0_TYPE>, v1.get<std::int8_t>())));        \
+        case perspective::t_dtype::DTYPE_UINT64: return mktscalar(static_cast<double>(std::FUNC(v0.get<V0_TYPE>, v1.get<std::uint64_t>())));    \
+        case perspective::t_dtype::DTYPE_UINT32: return mktscalar(static_cast<double>(std::FUNC(v0.get<V0_TYPE>, v1.get<std::uint32_t>())));    \
+        case perspective::t_dtype::DTYPE_UINT16: return mktscalar(static_cast<double>(std::FUNC(v0.get<V0_TYPE>, v1.get<std::uint16_t>())));    \
+        case perspective::t_dtype::DTYPE_UINT8: return mktscalar(static_cast<double>(std::FUNC(v0.get<V0_TYPE>, v1.get<std::uint8_t>())));      \
+        case perspective::t_dtype::DTYPE_FLOAT64: return mktscalar(static_cast<double>(std::FUNC(v0.get<V0_TYPE>, v1.get<double>())));          \
+        case perspective::t_dtype::DTYPE_FLOAT32: return mktscalar(static_cast<double>(std::FUNC(v0.get<V0_TYPE>, v1.get<float>())));           \
         default: return mknone();                                                                                          \
     }                                                                                                                      \
 
@@ -286,60 +287,6 @@ inline long long int to_int64_impl(const t_tscalar& v, t_tscalar_type_tag) {
     }
 }
 
-// template <>
-// inline t_tscalar process_impl(const operator_type operation, const t_tscalar arg0, const t_tscalar arg1) {
-//     std::cout << "process_impl" << std::endl;
-//     switch (operation) {
-//         case e_add: {
-//             std::cout << "ADD: " << arg0 << "+" << arg1 << std::endl;
-//             return arg0.add(arg1);
-//         } break;
-//         case e_sub: {
-//             std::cout << "SUB: " << arg0 << "+" << arg1 << std::endl;
-//             return arg0.difference(arg1);
-//         } break;
-//         case e_mul: {
-//             std::cout << "MUL: " << arg0 << "+" << arg1 << std::endl;
-//             return arg0.mul(arg1);
-//         } break;
-//         case e_div: {
-//             std::cout << "DIV: " << arg0 << "+" << arg1 << std::endl;
-//             return mktscalar(100);
-//         } break;
-//         // case e_mod: return modulus<t_tscalar>(arg0,arg1);
-//         // case e_pow: return pow<t_tscalar>(arg0,arg1);
-//         // case e_atan2: return atan2<t_tscalar>(arg0,arg1);
-//         // case e_min: return std::min<T>(arg0,arg1);
-//         // case e_max: return std::max<T>(arg0,arg1);
-//         // case e_logn: return logn<T>(arg0,arg1);
-//         // case e_lt: return (arg0 < arg1) ? T(1): T(0);
-//         // case e_lte: return (arg0 <= arg1) ? T(1): T(0);
-//         // case e_eq: return std::equal_to<T>()(arg0,arg1) ? T(1): T(0);
-//         // case e_ne: return std::not_equal_to<T>()(arg0,arg1) ? T(1): T(0);
-//         // case e_gte: return (arg0 >= arg1) ? T(1): T(0);
-//         // case e_gt: return (arg0 > arg1) ? T(1): T(0);
-//         // case e_and: return and_opr<T>(arg0,arg1);
-//         // case e_nand: return nand_opr<T>(arg0,arg1);
-//         // case e_or: return or_opr<T>(arg0,arg1);
-//         // case e_nor: return nor_opr<T>(arg0,arg1);
-//         // case e_xor: return xor_opr<T>(arg0,arg1);
-//         // case e_xnor: return xnor_opr<T>(arg0,arg1);
-//         // case e_root: return root<T>(arg0,arg1);
-//         // case e_roundn: return roundn<T>(arg0,arg1);
-//         // case e_equal: return equal(arg0,arg1);
-//         // case e_nequal: return nequal(arg0,arg1);
-//         // case e_hypot: return hypot<T>(arg0,arg1);
-//         // case e_shr: return shr<T>(arg0,arg1);
-//         // case e_shl: return shl<T>(arg0,arg1);
-
-//         default: {
-//             std::cout << "CUSTOM numeric::details::process_impl<T> - Invalid binary operation." << std::endl;
-//             std::cout << "invalid operation: " << arg0 << "," << arg1 << std::endl;
-//             return mknone();
-//         }
-//     }
-// }
-
 /******************************************************************************
  *
  * Unary functions
@@ -407,8 +354,18 @@ template <> inline t_tscalar ncdf_impl(const t_tscalar v, t_tscalar_type_tag) { 
  */
 template <> inline t_tscalar min_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return (v1 < v0) ? v1 : v0; }
 template <> inline t_tscalar max_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return (v1 > v0) ? v1 : v0;  }
-template <> inline t_tscalar equal_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return mktscalar(0); }
-template <> inline t_tscalar nequal_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return mktscalar(0); }
+template <> inline t_tscalar equal_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) {
+    t_tscalar rval;
+    // TODO: this doesn't work between scalars of different dtypes - how do
+    // we handle equality, comparison etc. between different dtyped scalars?
+    rval.set(v0 == v1);
+    return rval;    
+}
+template <> inline t_tscalar nequal_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) {
+    t_tscalar rval;
+    rval.set(v0 != v1);
+    return rval;
+}
 template <> inline t_tscalar modulus_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return mktscalar(0); }
 template <> inline t_tscalar pow_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return mktscalar(0); }
 template <> inline t_tscalar logn_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return mktscalar(0); }
@@ -425,7 +382,21 @@ template <> inline t_tscalar and_impl(const t_tscalar v0, const t_tscalar v1, t_
 template <> inline t_tscalar or_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return mktscalar(0); }
 template <> inline t_tscalar xor_impl(const t_tscalar v0, const t_tscalar v1, t_tscalar_type_tag) { return mktscalar(0); }
 
-template <> inline bool is_integer_impl(const t_tscalar& v, t_tscalar_type_tag) { return true; };
+template <> inline bool is_integer_impl(const t_tscalar& v, t_tscalar_type_tag) {
+    switch (v.get_dtype()) {
+        case perspective::t_dtype::DTYPE_INT64:
+        case perspective::t_dtype::DTYPE_INT32:
+        case perspective::t_dtype::DTYPE_INT16:
+        case perspective::t_dtype::DTYPE_INT8:
+        case perspective::t_dtype::DTYPE_UINT64:
+        case perspective::t_dtype::DTYPE_UINT32:
+        case perspective::t_dtype::DTYPE_UINT16: 
+        case perspective::t_dtype::DTYPE_UINT8: return true;
+        case perspective::t_dtype::DTYPE_FLOAT64:
+        case perspective::t_dtype::DTYPE_FLOAT32: return false;
+        default: return false;
+    }
+};
 
 #undef UNARY_STD_FUNCTION_BODY
 #undef UNARY_STD_INT_FUNCTION_BODY
@@ -611,8 +582,6 @@ inline bool valid_exponent(const t_tscalar& d, const int exponent, numeric::deta
         case perspective::t_dtype::DTYPE_UINT32:
         case perspective::t_dtype::DTYPE_UINT16:
         case perspective::t_dtype::DTYPE_UINT8: {
-            // TODO: should actually break here probably, if valid_exponent
-            // only gets called with floats.
             min_exp = 0;
             max_exp = 0;
         } break;

@@ -289,6 +289,9 @@ class PerspectiveViewer extends ActionElement {
                 expressions = [];
             }
 
+            // TODO: move this into `_new_view()` or create a new method that
+            // can access the state of the view itself without breaking the
+            // relative structure and organization of the module.
             this._update_expressions_view(expressions);
             this.dispatchEvent(new Event("perspective-config-update"));
             await this._debounce_update();

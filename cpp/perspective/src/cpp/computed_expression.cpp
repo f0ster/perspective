@@ -11,81 +11,12 @@
 
 namespace perspective {
 
-std::shared_ptr<exprtk::parser<double>>
-t_computed_expression::NUMERIC_PARSER = std::make_shared<exprtk::parser<double>>();
-
 std::shared_ptr<exprtk::parser<t_tscalar>>
 t_computed_expression::PARSER = std::make_shared<exprtk::parser<t_tscalar>>();
 
-template <typename T>
-computed_expression::col<T>::col(std::shared_ptr<t_data_table> data_table)
-        : m_data_table(data_table)
-        , m_columns({})
-        , m_ridxs({}) {}
-
-template <typename T>
-computed_expression::col<T>::~col() {}
-
-template <typename T>
-T computed_expression::col<T>::next(
-    std::shared_ptr<t_column> column,
-    const std::string& column_name) {
-    std::cout << "NOT IMPLEMENTED" << std::endl;
-    std::string error = "next<T>() Not implemented!\n";
-    PSP_COMPLAIN_AND_ABORT(error);
-}
-
-template <>
-t_tscalar computed_expression::col<t_tscalar>::next(
-    std::shared_ptr<t_column> column,
-    const std::string& column_name) {
-    t_uindex ridx = m_ridxs[column_name];
-    t_tscalar rval = column->get_scalar(ridx);
-    m_ridxs[column_name] += 1;
-    return rval;
-}
-
-template <typename T>
-T computed_expression::col<T>::operator()(t_parameter_list parameters) {
-    auto num_params = parameters.size();
-
-    if (num_params == 0) {
-        std::stringstream ss;
-        ss << "Expression error: col() function cannot be empty." << std::endl;
-        std::cout << ss.str();
-        PSP_COMPLAIN_AND_ABORT(ss.str());
-    }
-
-    t_string_view param = t_string_view(parameters[0]);
-    std::string column_name(param.begin(), param.size());
-
-    if (m_columns.count(column_name) == 1) {
-        auto column = m_columns[column_name];
-        return next(column, column_name);
-    } else {
-        auto column = m_data_table->operator[](column_name);
-
-        if (column == nullptr) {
-            std::stringstream ss;
-            ss << column_name << " does not exist!" << std::endl;
-            std::cout << ss.str();
-            PSP_COMPLAIN_AND_ABORT(ss.str());
-        }
-
-        m_columns[column_name] = column;
-        m_ridxs[column_name] = 0;
-        return next(column, column_name);
-    }
-}
-
-/******************************************************************************
- *
- * t_computed_expression
- */
-
 void
 t_computed_expression::init() {
-    //t_computed_expression::NUMERIC_PARSER->enable_unknown_symbol_resolver();
+    //t_computed_expression::PARSER->enable_unknown_symbol_resolver();
 }
 
 void
@@ -94,14 +25,14 @@ t_computed_expression::compute(
     std::shared_ptr<t_data_table> data_table) {
     auto start = std::chrono::high_resolution_clock::now(); 
     exprtk::symbol_table<t_tscalar> sym_table;
-    t_tscalar pi;
-    pi.set(3.14159265358979323846264338327950288419716939937510); // hack
-    sym_table.add_constant("pi", pi);
+    sym_table.add_constants();
 
     // register the data table with col() so it can grab values from
     // each column.
-    computed_expression::col<t_tscalar> col_fn(data_table);
+    computed_function::col<t_tscalar> col_fn(data_table);
+    computed_function::toupper<t_tscalar> toupper_fn = computed_function::toupper<t_tscalar>();
     sym_table.add_function("col", col_fn);
+    sym_table.add_function("toupper", toupper_fn);
 
     exprtk::expression<t_tscalar> expr_definition;
     expr_definition.register_symbol_table(sym_table);
@@ -118,7 +49,10 @@ t_computed_expression::compute(
     }
     
     // create or get output column
-    auto output_column = data_table->add_column_sptr(expression, t_dtype::DTYPE_FLOAT64, true);
+    auto schema = std::make_shared<t_schema>(data_table->get_schema());
+    t_dtype dtype = t_computed_expression::get_expression_dtype(expression, schema);
+    std::cout << "compute: " << expression << ": " << get_dtype_descr(dtype) << std::endl;
+    auto output_column = data_table->add_column_sptr(expression, dtype, true);
     output_column->reserve(data_table->size());
 
     for (t_uindex ridx = 0; ridx < data_table->size(); ++ridx) {
@@ -146,14 +80,13 @@ t_computed_expression::recompute(
     const std::vector<t_rlookup>& changed_rows) {
     auto start = std::chrono::high_resolution_clock::now(); 
     exprtk::symbol_table<t_tscalar> sym_table;
-    t_tscalar pi;
-    pi.set(3.14159265358979323846264338327950288419716939937510); // hack
-    sym_table.add_constant("pi", pi);
+    sym_table.add_constants();
 
-    // register the data table with col() so it can grab values from
-    // each column.
-    computed_expression::col<t_tscalar> col_fn(tbl);
+    // TODO: will break if flattened[row] is null
+    computed_function::col<t_tscalar> col_fn(flattened);
+    computed_function::toupper<t_tscalar> toupper_fn = computed_function::toupper<t_tscalar>();
     sym_table.add_function("col", col_fn);
+    sym_table.add_function("toupper", toupper_fn);
 
     exprtk::expression<t_tscalar> expr_definition;
     expr_definition.register_symbol_table(sym_table);
@@ -170,7 +103,10 @@ t_computed_expression::recompute(
     }
     
     // create or get output column
-    auto output_column = flattened->add_column_sptr(expression, t_dtype::DTYPE_FLOAT64, true);
+    auto schema = std::make_shared<t_schema>(tbl->get_schema());
+    t_dtype dtype = t_computed_expression::get_expression_dtype(expression, schema);
+    std::cout << "recompute: " << expression << ": " << get_dtype_descr(dtype) << std::endl;
+    auto output_column = flattened->add_column_sptr(expression, dtype, true);
     output_column->reserve(tbl->size());
 
     t_uindex num_rows = changed_rows.size();
@@ -205,6 +141,47 @@ t_computed_expression::recompute(
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); 
     std::cout << "recompute exprtk: " << duration.count() << std::endl;
+}
+
+t_dtype
+t_computed_expression::get_expression_dtype(
+    const std::string& expression,
+    std::shared_ptr<t_schema> schema
+) {
+    auto start = std::chrono::high_resolution_clock::now(); 
+    exprtk::symbol_table<t_tscalar> sym_table;
+    sym_table.add_constants();
+
+    // register the data table with col() so it can grab values from
+    // each column.
+    computed_function::col<t_tscalar> col_fn(schema);
+    computed_function::toupper<t_tscalar> toupper_fn = computed_function::toupper<t_tscalar>();
+    sym_table.add_function("col", col_fn);
+    sym_table.add_function("toupper", toupper_fn);
+
+
+    exprtk::expression<t_tscalar> expr_definition;
+    expr_definition.register_symbol_table(sym_table);
+
+    if (!t_computed_expression::PARSER->compile(expression, expr_definition)) {
+        std::stringstream ss;
+        ss << "[compute] Failed to parse expression: `"
+            << expression
+            << "`, failed with error: "
+            << t_computed_expression::PARSER->error().c_str()
+            << std::endl;
+
+        return DTYPE_NONE;
+    }
+
+    t_tscalar v = expr_definition.value();
+
+    std::cout << "get_dtype value: " << v.repr() << std::endl;
+
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); 
+    std::cout << "get dtype took: " << duration.count() << std::endl;
+    return v.get_dtype();
 }
 
 } // end namespace perspective

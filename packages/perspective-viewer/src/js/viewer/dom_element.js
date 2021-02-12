@@ -263,7 +263,11 @@ export class DomElement extends PerspectiveElement {
                 continue;
             }
 
-            const row = this._new_row(expr, "float", null, null, null, expr);
+            // TODO: needs a way to pre-type check columns, OR update this
+            // column view after the view is created.
+            let type = "float";
+
+            const row = this._new_row(expr, type, null, null, null, expr);
             this._inactive_columns.insertBefore(row, this._inactive_columns.childNodes[0] || null);
             added_count++;
         }

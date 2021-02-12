@@ -926,8 +926,10 @@ t_gnode::_register_context(const std::string& name, t_ctx_type type, std::int64_
         _add_computed_column(computed, gstate_table);
     }
 
+    auto schema = std::make_shared<t_schema>(gstate_table->get_schema());
     for (const std::string& expr : expressions) {
-        gstate_table->add_column_sptr(expr, DTYPE_FLOAT64, true);
+        t_dtype dtype = t_computed_expression::get_expression_dtype(expr, schema);
+        gstate_table->add_column_sptr(expr, dtype, true);
     }
 }
 

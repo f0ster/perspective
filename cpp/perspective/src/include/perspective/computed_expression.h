@@ -16,6 +16,7 @@
 #include <perspective/column.h>
 #include <perspective/data_table.h>
 #include <perspective/rlookup.h>
+#include <perspective/computed_function.h>
 #include <date/date.h>
 
 // a header that includes exprtk and overload definitions for `t_tscalar` so
@@ -23,37 +24,6 @@
 #include <perspective/exprtk.h>
 
 namespace perspective {
-namespace computed_expression {
-
-/**
- * @brief A custom exprtk function that reaches into a column and returns the
- * value of the next row. Basically like an iterator but slow and bad, and this
- * should be fully deleted with a better implementation of "get a value from
- * a column". Unfortunately, because ExprTk UDFs don't allow vector return
- * this seems like a logical first step.
- * 
- * @tparam T 
- */
-template <typename T>
-struct col : public exprtk::igeneric_function<T> {
-    typedef typename exprtk::igeneric_function<T>::parameter_list_t t_parameter_list;
-    typedef typename exprtk::igeneric_function<T>::generic_type t_generic_type;
-    typedef typename t_generic_type::string_view t_string_view;
-
-    std::shared_ptr<t_data_table> m_data_table;
-    std::map<std::string, std::shared_ptr<t_column>> m_columns;
-    std::map<std::string, t_uindex> m_ridxs;
-
-    col(std::shared_ptr<t_data_table> data_table);
-
-    ~col();
-
-    T next(std::shared_ptr<t_column> column, const std::string& column_name);
-
-    T operator()(t_parameter_list parameters);
-};
-
-}; // end namespace computed_expression
 
 class PERSPECTIVE_EXPORT t_computed_expression {
 public:
@@ -70,10 +40,10 @@ public:
         const std::vector<t_rlookup>& changed_rows);
 
     static t_dtype get_expression_dtype(
-        const std::string& expression
+        const std::string& expression,
+        std::shared_ptr<t_schema> schema
     );
 
-    static std::shared_ptr<exprtk::parser<double>> NUMERIC_PARSER;
     static std::shared_ptr<exprtk::parser<t_tscalar>> PARSER;
 };
 

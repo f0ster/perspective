@@ -1488,7 +1488,15 @@ namespace binding {
 
         for (const std::string& expression : expressions) {
             // TODO: figure out types
-            schema->add_column(expression, DTYPE_FLOAT64);
+            t_dtype expression_dtype = t_computed_expression::get_expression_dtype(expression, schema);
+            
+            std::cout << expression << ": " << get_dtype_descr(expression_dtype) << std::endl;
+
+            if (expression_dtype == DTYPE_NONE) {
+                std::cout << "BAD EXPRESSION for " << expression << std::endl;
+                PSP_COMPLAIN_AND_ABORT("");
+            }
+            schema->add_column(expression, expression_dtype);
         }
 
         // create the `t_view_config`
