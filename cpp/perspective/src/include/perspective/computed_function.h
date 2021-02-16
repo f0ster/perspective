@@ -49,11 +49,6 @@ struct col : public exprtk::igeneric_function<T> {
     typedef typename exprtk::igeneric_function<T>::generic_type t_generic_type;
     typedef typename t_generic_type::string_view t_string_view;
 
-    std::shared_ptr<t_data_table> m_data_table;
-    std::shared_ptr<t_schema> m_schema;
-    std::map<std::string, std::shared_ptr<t_column>> m_columns;
-    std::map<std::string, t_uindex> m_ridxs;
-
     col(std::shared_ptr<t_data_table> data_table);
     col(std::shared_ptr<t_schema> schema);
 
@@ -62,6 +57,11 @@ struct col : public exprtk::igeneric_function<T> {
     T next(std::shared_ptr<t_column> column, const std::string& column_name);
 
     T operator()(t_parameter_list parameters);
+
+    std::shared_ptr<t_data_table> m_data_table;
+    std::shared_ptr<t_schema> m_schema;
+    std::map<std::string, std::shared_ptr<t_column>> m_columns;
+    std::map<std::string, t_uindex> m_ridxs;
 };
 
 template <typename T>

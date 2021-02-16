@@ -820,7 +820,7 @@ t_gnode::_register_context(const std::string& name, t_ctx_type type, std::int64_
     }
 
     std::vector<t_computed_column_definition> computed_columns;
-    std::vector<std::string> expressions;
+    std::vector<t_computed_expression> expressions;
 
     switch (type) {
         case TWO_SIDED_CONTEXT: {
@@ -832,13 +832,12 @@ t_gnode::_register_context(const std::string& name, t_ctx_type type, std::int64_
             expressions = ctx->get_config().get_expressions();
 
             for (auto expr : expressions) {
-                if (m_expression_map.count(expr) == 0) {
-                    m_expression_map[expr] = 0;
-                }
+                std::string expression_string = expr.m_expression_string;
 
-                m_expression_map[expr]++;
+                if (m_expression_map.count(expression_string) == 0) {
+                    m_expression_map[expression_string] = expr;
+                }
             }
-            
 
             if (should_update) {
                 // Compute all valid computed columns + new computed columns that
@@ -859,11 +858,10 @@ t_gnode::_register_context(const std::string& name, t_ctx_type type, std::int64_
             expressions = ctx->get_config().get_expressions();
 
             for (auto expr : expressions) {
-                if (m_expression_map.count(expr) == 0) {
-                    m_expression_map[expr] = 0;
+                std::string expression_string = expr.m_expression_string;
+                if (m_expression_map.count(expression_string) == 0) {
+                    m_expression_map[expression_string] = expr;
                 }
-
-                m_expression_map[expr]++;
             }
 
             if (should_update) {
@@ -881,11 +879,10 @@ t_gnode::_register_context(const std::string& name, t_ctx_type type, std::int64_
             expressions = ctx->get_config().get_expressions();
 
             for (auto expr : expressions) {
-                if (m_expression_map.count(expr) == 0) {
-                    m_expression_map[expr] = 0;
+                std::string expression_string = expr.m_expression_string;
+                if (m_expression_map.count(expression_string) == 0) {
+                    m_expression_map[expression_string] = expr;
                 }
-
-                m_expression_map[expr]++;
             }
 
             if (should_update) {
@@ -926,10 +923,10 @@ t_gnode::_register_context(const std::string& name, t_ctx_type type, std::int64_
         _add_computed_column(computed, gstate_table);
     }
 
-    auto schema = std::make_shared<t_schema>(gstate_table->get_schema());
-    for (const std::string& expr : expressions) {
-        t_dtype dtype = t_computed_expression::get_expression_dtype(expr, schema);
-        gstate_table->add_column_sptr(expr, dtype, true);
+    for (const auto& expr : expressions) {
+        const std::string& expression_string = expr.m_expression_string;
+        t_dtype expression_dtype = expr.m_dtype;
+        gstate_table->add_column_sptr(expression_string, expression_dtype, true);
     }
 }
 
@@ -945,7 +942,7 @@ t_gnode::_unregister_context(const std::string& name) {
     t_ctx_type type = ctxh.get_type();
 
     std::vector<std::string> computed_column_names;
-    std::vector<std::string> expressions;
+    std::vector<t_computed_expression> expressions;
     switch (type) {
         // No computed columns to remove
         case UNIT_CONTEXT: break;
@@ -960,13 +957,10 @@ t_gnode::_unregister_context(const std::string& name) {
 
             expressions = ctx->get_config().get_expressions();
 
-            for (auto expr : expressions) {
-                if (m_expression_map.count(expr) > 0) {
-                    m_expression_map[expr]--;
-
-                    if (m_expression_map[expr] == 0) {
-                        m_expression_map.erase(expr);
-                    }
+            for (const auto& expr : expressions) {
+                std::string expression_string = expr.m_expression_string;
+                if (m_expression_map.count(expression_string) > 0) {
+                    m_expression_map.erase(expression_string);
                 }
             }
         } break;
@@ -979,13 +973,10 @@ t_gnode::_unregister_context(const std::string& name) {
             }
             m_computed_column_map.remove_computed_columns(computed_column_names);
 
-            for (auto expr : expressions) {
-                if (m_expression_map.count(expr) > 0) {
-                    m_expression_map[expr]--;
-
-                    if (m_expression_map[expr] == 0) {
-                        m_expression_map.erase(expr);
-                    }
+            for (const auto& expr : expressions) {
+                std::string expression_string = expr.m_expression_string;
+                if (m_expression_map.count(expression_string) > 0) {
+                    m_expression_map.erase(expression_string);
                 }
             }
         } break;
@@ -998,13 +989,10 @@ t_gnode::_unregister_context(const std::string& name) {
             }
             m_computed_column_map.remove_computed_columns(computed_column_names);
 
-            for (auto expr : expressions) {
-                if (m_expression_map.count(expr) > 0) {
-                    m_expression_map[expr]--;
-
-                    if (m_expression_map[expr] == 0) {
-                        m_expression_map.erase(expr);
-                    }
+            for (const auto& expr : expressions) {
+                std::string expression_string = expr.m_expression_string;
+                if (m_expression_map.count(expression_string) > 0) {
+                    m_expression_map.erase(expression_string);
                 }
             }
         } break;
@@ -1017,13 +1005,10 @@ t_gnode::_unregister_context(const std::string& name) {
             }
             m_computed_column_map.remove_computed_columns(computed_column_names);
 
-            for (auto expr : expressions) {
-                if (m_expression_map.count(expr) > 0) {
-                    m_expression_map[expr]--;
-
-                    if (m_expression_map[expr] == 0) {
-                        m_expression_map.erase(expr);
-                    }
+            for (const auto& expr : expressions) {
+                std::string expression_string = expr.m_expression_string;
+                if (m_expression_map.count(expression_string) > 0) {
+                    m_expression_map.erase(expression_string);
                 }
             }
         } break;
@@ -1096,7 +1081,7 @@ t_gnode::_compute(
     std::vector<std::shared_ptr<t_data_table>> tables) {
     for (std::shared_ptr<t_data_table> table : tables) {
         for (const auto& expression : m_expression_map) {
-            t_computed_expression::compute(expression.first, table);
+            t_compute::compute(expression.second, table);
         }
     }
 }
@@ -1108,7 +1093,7 @@ t_gnode::_recompute(
     const std::vector<t_rlookup>& changed_rows
 ) {
     for (const auto& expression : m_expression_map) {
-        t_computed_expression::recompute(expression.first, tbl, flattened, changed_rows);
+        t_compute::recompute(expression.second, tbl, flattened, changed_rows);
     }
 }
 

@@ -18,7 +18,7 @@ t_config::t_config(
     const std::vector<t_fterm>& fterms,
     t_filter_op combiner,
     const std::vector<t_computed_column_definition>& computed_columns,
-    const std::vector<std::string>& expressions)
+    const std::vector<t_computed_expression>& expressions)
     : m_detail_columns(detail_columns)
     , m_fterms(fterms)
     , m_computed_columns(computed_columns)
@@ -47,7 +47,7 @@ t_config::t_config(
     const std::vector<t_fterm>& fterms,
     t_filter_op combiner,
     const std::vector<t_computed_column_definition>& computed_columns,
-    const std::vector<std::string>& expressions)
+    const std::vector<t_computed_expression>& expressions)
     : m_aggregates(aggregates)
     , m_fterms(fterms)
     , m_computed_columns(computed_columns)
@@ -71,7 +71,7 @@ t_config::t_config(
     const std::vector<t_fterm>& fterms,
     t_filter_op combiner,
     const std::vector<t_computed_column_definition>& computed_columns,
-    const std::vector<std::string>& expressions,
+    const std::vector<t_computed_expression>& expressions,
     bool column_only)
     : m_aggregates(aggregates)
     , m_fterms(fterms)
@@ -390,7 +390,7 @@ t_config::get_computed_columns() const {
     return m_computed_columns;
 }
 
-std::vector<std::string>
+std::vector<t_computed_expression>
 t_config::get_expressions() const {
     return m_expressions;
 }

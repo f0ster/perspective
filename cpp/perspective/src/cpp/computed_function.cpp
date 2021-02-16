@@ -76,7 +76,9 @@ T col<T>::operator()(t_parameter_list parameters) {
     if (m_data_table == nullptr && m_schema != nullptr) {
         if (m_schema->has_column(column_name)) {
             t_tscalar rval;
-            rval.clear();
+            // scalar is valid here, as operations would fail and return
+            // none if the inputs are not valid scalars.
+            rval.m_status = STATUS_VALID;
             rval.m_type = m_schema->get_dtype(column_name);
             return rval;
         } else {

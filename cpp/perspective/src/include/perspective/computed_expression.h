@@ -25,16 +25,24 @@
 
 namespace perspective {
 
-class PERSPECTIVE_EXPORT t_computed_expression {
+struct PERSPECTIVE_EXPORT t_computed_expression {
+    t_computed_expression() = default;
+    t_computed_expression(const std::string& expression_string, t_dtype dtype);
+
+    std::string m_expression_string;
+    t_dtype m_dtype;
+};
+
+class PERSPECTIVE_EXPORT t_compute {
 public:
     static void init();
 
     static void compute(
-        const std::string& expression,
+        t_computed_expression expression,
         std::shared_ptr<t_data_table> data_table);
     
     static void recompute(
-        const std::string& expression,
+        t_computed_expression expression,
         std::shared_ptr<t_data_table> tbl,
         std::shared_ptr<t_data_table> flattened,
         const std::vector<t_rlookup>& changed_rows);
@@ -43,6 +51,11 @@ public:
         const std::string& expression,
         std::shared_ptr<t_schema> schema
     );
+
+    // TODO: use this in table::computed_schema
+    // rename computed_schema?
+    // TODO: minimize copy/allocation/destruct for t_tscalar usage inside
+    // the expression parser.
 
     static std::shared_ptr<exprtk::parser<t_tscalar>> PARSER;
 };

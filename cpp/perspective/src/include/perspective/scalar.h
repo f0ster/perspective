@@ -67,8 +67,13 @@ struct PERSPECTIVE_EXPORT t_tscalar {
 
     t_tscalar() = default;
 
-    // Function-style cast to int required for exprtk
-    // FIXME: this would break POD
+    /**
+     * @brief A functional-style cast from int to `t_tscalar` used widely
+     * by Exprtk. The scalar returned is of DTYPE_FLOAT64, so we don't have
+     * to promote from int to float later on.
+     * 
+     * @param v 
+     */
     t_tscalar(int v);
 
     template <typename T>

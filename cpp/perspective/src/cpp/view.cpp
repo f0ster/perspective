@@ -362,10 +362,11 @@ View<CTX_T>::computed_schema() const {
     }
 
     for (const auto& expr : m_expressions) {
-        new_schema[expr] = "float";
+        const std::string& expression_string = expr.m_expression_string;
+        new_schema[expression_string] = dtype_to_str(expr.m_dtype);
 
         if (m_row_pivots.size() > 0 && !is_column_only()) {
-            new_schema[expr] = _map_aggregate_types(expr, new_schema[expr]);
+            new_schema[expression_string] = _map_aggregate_types(expression_string, new_schema[expression_string]);
         }
     }
 
@@ -398,7 +399,8 @@ View<t_ctx0>::computed_schema() const {
 
     // TODO: remove the old computed API
     for (const auto& expr : m_expressions) {
-        new_schema[expr] = "float";
+        const std::string& expression_string = expr.m_expression_string;
+        new_schema[expression_string] = dtype_to_str(expr.m_dtype);
     }
 
     return new_schema;
@@ -830,7 +832,7 @@ View<CTX_T>::get_computed_columns() const {
 }
 
 template <typename CTX_T>
-std::vector<std::string>
+std::vector<t_computed_expression>
 View<CTX_T>::get_expressions() const {
     return m_expressions;
 }

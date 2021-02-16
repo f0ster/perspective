@@ -1289,6 +1289,35 @@ export default function(Module) {
         return new_schema;
     };
 
+    table.prototype.expression_schema = function(expressions, override = true) {
+        const new_schema = {};
+
+        if (!expressions || expressions.length === 0) return new_schema;
+
+        let vector = __MODULE__.make_string_vector();
+        vector = fill_vector(vector, expressions);
+
+        let expression_schema = __MODULE__.get_table_expression_schema(this._Table, vector);
+        let columns = expression_schema.columns();
+        let types = expression_schema.types();
+
+        for (let key = 0; key < columns.size(); key++) {
+            const name = columns.get(key);
+            const type = types.get(key);
+            if (override && this.overridden_types[name]) {
+                new_schema[name] = this.overridden_types[name];
+            } else {
+                new_schema[name] = get_column_type(type.value);
+            }
+        }
+
+        expression_schema.delete();
+        columns.delete();
+        types.delete();
+
+        return new_schema;
+    };
+
     /**
      * Given a computed function name, return an array of strings containing
      * the expected input column types for the computed function.
@@ -1416,6 +1445,8 @@ export default function(Module) {
         config.computed_columns = config.computed_columns || [];
         config.expressions = config.expressions || [];
 
+        const table_schema = this.schema();
+
         if (config.expressions.length > 0) {
             let validated_expressions = [];
             for (let expr of config.expressions) {
@@ -1423,7 +1454,16 @@ export default function(Module) {
                     throw new Error("Expression cannot reference empty column $''!");
                 }
 
-                validated_expressions.push(expr.replace(/\$'(.+?[^\\])'/g, (_, p1) => `col('${p1}')`));
+                validated_expressions.push(
+                    expr.replace(/\$'(.+?[^\\])'/g, (_, p1) => {
+                        return `col('${p1}')`;
+                        // if (table_schema[p1]) {
+                        //     return `col('${p1}')`;
+                        // } else {
+                        //     throw Error(`Column "${p1}" does not exist in the table schema!`);
+                        // }
+                    })
+                );
             }
 
             config.expressions = validated_expressions;
@@ -1443,7 +1483,6 @@ export default function(Module) {
         // convert date/datetime filters to Date() objects, so they are parsed
         // as local time
         if (config.filter.length > 0) {
-            const table_schema = this.schema();
             for (let filter of config.filter) {
                 const dtype = table_schema[filter[0]];
                 const is_compare = filter[1] !== perspective.FILTER_OPERATORS.isNull && filter[1] !== perspective.FILTER_OPERATORS.isNotNull;

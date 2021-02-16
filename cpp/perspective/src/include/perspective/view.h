@@ -235,7 +235,7 @@ public:
     std::vector<t_fterm> get_filter() const;
     std::vector<t_sortspec> get_sort() const;
     std::vector<t_computed_column_definition> get_computed_columns() const;
-    std::vector<std::string> get_expressions() const;
+    std::vector<t_computed_expression> get_expressions() const;
     std::vector<t_tscalar> get_row_path(t_uindex idx) const;
     t_stepdelta get_step_delta(t_index bidx, t_index eidx) const;
     t_dtype get_column_dtype(t_uindex idx) const;
@@ -278,7 +278,7 @@ private:
     std::vector<t_sortspec> m_sort;
     std::vector<std::string> m_hidden_sort;
     std::vector<t_computed_column_definition> m_computed_columns;
-    std::vector<std::string> m_expressions;
+    std::vector<t_computed_expression> m_expressions;
     bool m_column_only;
     t_uindex m_row_offset;
     t_uindex m_col_offset;

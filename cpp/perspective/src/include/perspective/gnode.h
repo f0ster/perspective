@@ -391,9 +391,8 @@ private:
 
     t_computed_column_map m_computed_column_map;
 
-    // a reference count map for expressions - TODO: this can be simplified
-    // down I think.
-    tsl::ordered_map<std::string, t_uindex> m_expression_map;
+    // track all expressions on this gnode
+    tsl::ordered_map<std::string, t_computed_expression> m_expression_map;
 
     bool m_init;
     t_uindex m_id;

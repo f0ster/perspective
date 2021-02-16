@@ -17,6 +17,7 @@
 #include <perspective/pivot.h>
 #include <perspective/schema.h>
 #include <perspective/sort_specification.h>
+#include <perspective/computed_expression.h>
 
 namespace perspective {
 
@@ -46,7 +47,7 @@ public:
         const std::vector<t_fterm>& fterms,
         t_filter_op combiner,
         const std::vector<t_computed_column_definition>& computed_columns,
-        const std::vector<std::string>& expressions);
+        const std::vector<t_computed_expression>& expressions);
 
     /**
      * @brief Construct a new config for a `t_ctx1` object, which has 1 or more `row_pivot`s
@@ -62,7 +63,7 @@ public:
         const std::vector<t_fterm>& fterms,
         t_filter_op combiner,
         const std::vector<t_computed_column_definition>& computed_columns,
-        const std::vector<std::string>& expressions);
+        const std::vector<t_computed_expression>& expressions);
 
     /**
      * @brief Construct a new config for a `t_ctx2` object, which has 1 or more `row_pivot`s and
@@ -84,7 +85,7 @@ public:
         const std::vector<t_fterm>& fterms,
         t_filter_op combiner,
         const std::vector<t_computed_column_definition>& computed_columns,
-        const std::vector<std::string>& expressions,
+        const std::vector<t_computed_expression>& expressions,
         bool column_only);
 
     // An empty config, used for the unit context.
@@ -168,7 +169,7 @@ public:
     std::vector<t_computed_column_definition>
     get_computed_columns() const;
 
-    std::vector<std::string>
+    std::vector<t_computed_expression>
     get_expressions() const;
 
     t_totals get_totals() const;
@@ -204,7 +205,7 @@ private:
     std::vector<t_sortspec> m_col_sortspecs;
     std::vector<t_fterm> m_fterms;
     std::vector<t_computed_column_definition> m_computed_columns;
-    std::vector<std::string> m_expressions;
+    std::vector<t_computed_expression> m_expressions;
     t_filter_op m_combiner;
     bool m_column_only;
 

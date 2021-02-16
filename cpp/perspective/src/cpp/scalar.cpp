@@ -58,20 +58,14 @@ namespace perspective {
         case DTYPE_FLOAT32: { \
             rval.set(m_data.FIELD OP other.m_data.m_float32); \
         } break; \
-        default: {/* no-op */}  \
+        default: return mknone(); \
     } \
 
 #define BINARY_OPERATOR_BODY(OP) \
+    if (!other.is_valid() || !is_valid() || !is_numeric()) return mknone(); \
     t_tscalar rval; \
     rval.clear(); \
     rval.m_type = m_type; \
-    if (!other.is_valid()) return *this; \
-    if (!is_valid()) return other; \
-    if (m_type == DTYPE_NONE) { \
-        rval.set(other); \
-        return rval; \
-    } \
-    if (other.m_type == DTYPE_NONE) return *this; \
     switch (m_type) { \
         case DTYPE_INT64: { \
             BINARY_OPERATOR_INNER(m_int64, OP) \
@@ -103,18 +97,20 @@ namespace perspective {
         case DTYPE_FLOAT32: { \
             BINARY_OPERATOR_INNER(m_float32, OP) \
         } break; \
-        default: { /* no-op */ } \
+        default: return mknone(); \
     } \
-    std::cout << "returning from " << #OP << " : " << rval << std::endl; \
     return rval; \
 
-t_tscalar::t_tscalar(int x) {
-    std::cout << "from INT t_tscalar(" << x << ")" << std::endl;
-
-    // lol this is so bad - we will need better knowledge of exactly
-    // what the dtype is at every point in string_to_real, i.e. as soon as
-    // we know we are parsing an int let's flip the scalar to float.
-    this->set(static_cast<std::int64_t>(x));
+/**
+ * @brief A function-style cast used by exprtk. Because we want the numeric
+ * type that can accomodate the most values without retyping, the scalar
+ * here is set as DTYPE_FLOAT64.
+ * 
+ * @param value
+ */
+t_tscalar::t_tscalar(int v) {
+    // set<double>() returns a scalar with DTYPE_FLOAT64.
+    this->set(static_cast<double>(v));
 }
 
 bool
@@ -180,7 +176,7 @@ t_tscalar::operator+() const {
     // TODO: how do we want to handle this - do we want these functions to be
     // even able to return a none type? What is the behavior for all functions
     // when dealing with nones?
-    if (!is_valid() || m_type == DTYPE_NONE) return mknone();
+    if (!is_valid() || !is_numeric()) return mknone();
 
     switch (m_type) { 
         case DTYPE_INT64: {
@@ -269,43 +265,31 @@ t_tscalar::operator-() const {
 
 t_tscalar
 t_tscalar::operator+(const t_tscalar& other) const {
-    std::cout << *this << " + " << other << std::endl;
     BINARY_OPERATOR_BODY(+)
 }
 
 t_tscalar
 t_tscalar::operator-(const t_tscalar& other) const {
-    std::cout << *this <<  " - " << other << std::endl;
     BINARY_OPERATOR_BODY(-)
 }
 
 t_tscalar
 t_tscalar::operator*(const t_tscalar& other) const {
-    std::cout << *this << " * " << other << std::endl;
     BINARY_OPERATOR_BODY(*)
 }
 
 t_tscalar
 t_tscalar::operator/(const t_tscalar& other) const {
-    std::cout << *this << " / " << other << std::endl;
     BINARY_OPERATOR_BODY(/)
 }
 
 t_tscalar
 t_tscalar::operator%(const t_tscalar& other) const {
-    std::cout << *this << " % " << other << std::endl;
+    if (!other.is_valid() || !is_valid() || !is_numeric()) return mknone();
+    
     t_tscalar rval;
     rval.clear();
     rval.m_type = m_type;
-
-    if (!other.is_valid() || other.m_type == DTYPE_NONE) return *this;
-
-    if (!is_valid()) return other;
-
-    if (m_type == DTYPE_NONE) {
-        rval.set(other);
-        return rval;
-    }
 
     switch (m_type) {
         case DTYPE_INT64: {
@@ -340,7 +324,7 @@ t_tscalar::operator%(const t_tscalar& other) const {
                 case DTYPE_FLOAT32: {
                     rval.set(fmod(m_data.m_int64, other.m_data.m_float32));
                 } break;
-                default: {/* no-op */}
+                default: return mknone();
             }
         } break;
         case DTYPE_INT32: {
@@ -375,7 +359,7 @@ t_tscalar::operator%(const t_tscalar& other) const {
                 case DTYPE_FLOAT32: {
                     rval.set(fmod(m_data.m_int32, other.m_data.m_float32));
                 } break;
-                default: {/* no-op */}
+                default: return mknone();
             }
         } break;
         case DTYPE_INT16: {
@@ -410,7 +394,7 @@ t_tscalar::operator%(const t_tscalar& other) const {
                 case DTYPE_FLOAT32: {
                     rval.set(fmod(m_data.m_int16, other.m_data.m_float32));
                 } break;
-                default: {/* no-op */}
+                default: return mknone();
             }
         } break;
         case DTYPE_INT8: {
@@ -445,7 +429,7 @@ t_tscalar::operator%(const t_tscalar& other) const {
                 case DTYPE_FLOAT32: {
                     rval.set(fmod(m_data.m_int8, other.m_data.m_float32));
                 } break;
-                default: {/* no-op */}
+                default: return mknone();
             }
         } break;
         case DTYPE_UINT64: {
@@ -480,7 +464,7 @@ t_tscalar::operator%(const t_tscalar& other) const {
                 case DTYPE_FLOAT32: {
                     rval.set(fmod(m_data.m_uint64, other.m_data.m_float32));
                 } break;
-                default: {/* no-op */}
+                default: return mknone();
             }
         } break;
         case DTYPE_UINT32: {
@@ -515,7 +499,7 @@ t_tscalar::operator%(const t_tscalar& other) const {
                 case DTYPE_FLOAT32: {
                     rval.set(fmod(m_data.m_uint32, other.m_data.m_float32));
                 } break;
-                default: {/* no-op */}
+                default: return mknone();
             }
         } break;
         case DTYPE_UINT16: {
@@ -550,7 +534,7 @@ t_tscalar::operator%(const t_tscalar& other) const {
                 case DTYPE_FLOAT32: {
                     rval.set(fmod(m_data.m_uint16, other.m_data.m_float32));
                 } break;
-                default: {/* no-op */}
+                default: return mknone();
             }
         } break;
         case DTYPE_UINT8: {
@@ -585,7 +569,7 @@ t_tscalar::operator%(const t_tscalar& other) const {
                 case DTYPE_FLOAT32: {
                     rval.set(fmod(m_data.m_uint8, other.m_data.m_float32));
                 } break;
-                default: {/* no-op */}
+                default: return mknone();
             }
         } break;
         case DTYPE_FLOAT64: {
@@ -620,7 +604,7 @@ t_tscalar::operator%(const t_tscalar& other) const {
                 case DTYPE_FLOAT32: {
                     rval.set(fmod(m_data.m_float64, other.m_data.m_float32));
                 } break;
-                default: {/* no-op */}
+                default: return mknone();
             }
         } break;
         case DTYPE_FLOAT32: {
@@ -655,10 +639,10 @@ t_tscalar::operator%(const t_tscalar& other) const {
                 case DTYPE_FLOAT32: {
                     rval.set(fmod(m_data.m_float32, other.m_data.m_float32));
                 } break;
-                default: {/* no-op */}
+                default: return mknone();
             }
         } break;
-        default: { /* no-op */ }
+        default: return mknone();
     }
 
     return rval;
@@ -667,7 +651,6 @@ t_tscalar::operator%(const t_tscalar& other) const {
 template <typename T>
 t_tscalar
 t_tscalar::operator+(T other) const {
-    std::cout << *this << " + (T) " << other << std::endl;
     t_tscalar other_scalar;
     other_scalar.set(other);
     return this->operator+(other_scalar);
@@ -676,7 +659,6 @@ t_tscalar::operator+(T other) const {
 template <>
 t_tscalar
 t_tscalar::operator+(unsigned int other) const {
-    std::cout << *this << " + (unsigned int) " << other << std::endl;
     t_tscalar other_scalar;
     other_scalar.set(other);
     return this->operator+(other_scalar);
@@ -685,7 +667,6 @@ t_tscalar::operator+(unsigned int other) const {
 template <typename T>
 t_tscalar
 t_tscalar::operator-(T other) const {
-    std::cout << *this << " - (T) " << other << std::endl;
     t_tscalar other_scalar;
     other_scalar.set(other);
     return this->operator-(other_scalar);
@@ -694,7 +675,6 @@ t_tscalar::operator-(T other) const {
 template <typename T>
 t_tscalar
 t_tscalar::operator*(T other) const {
-    std::cout << *this << " * (T) " << other << std::endl;
     t_tscalar other_scalar;
     other_scalar.set(other);
     return this->operator*(other_scalar);
@@ -703,7 +683,6 @@ t_tscalar::operator*(T other) const {
 template <>
 t_tscalar
 t_tscalar::operator*(int other) const {
-    std::cout << *this << " * (int) " << other << std::endl;
     t_tscalar other_scalar;
     other_scalar.set(other);
     return this->operator*(other_scalar);
@@ -712,7 +691,6 @@ t_tscalar::operator*(int other) const {
 template <>
 t_tscalar
 t_tscalar::operator*(double other) const {
-    std::cout << *this << " * (double) " << other << std::endl;
     t_tscalar other_scalar;
     other_scalar.set(other);
     return this->operator*(other_scalar);
@@ -721,7 +699,6 @@ t_tscalar::operator*(double other) const {
 template <typename T>
 t_tscalar
 t_tscalar::operator/(T other) const {
-    std::cout << *this << " / (T)" << other << std::endl;
     t_tscalar other_scalar;
     other_scalar.set(other);
     return this->operator/(other_scalar);
@@ -730,7 +707,6 @@ t_tscalar::operator/(T other) const {
 template <>
 t_tscalar
 t_tscalar::operator/(unsigned long other) const {
-    std::cout << *this << " / (unsigned long) " << other << std::endl;
     t_tscalar other_scalar;
     other_scalar.set(static_cast<std::uint32_t>(other));
     return this->operator/(other_scalar);
@@ -739,7 +715,6 @@ t_tscalar::operator/(unsigned long other) const {
 template <>
 t_tscalar
 t_tscalar::operator/(double other) const {
-    std::cout << *this << " / (double) " << other << std::endl;
     t_tscalar other_scalar;
     other_scalar.set(other);
     return this->operator/(other_scalar);
@@ -748,7 +723,6 @@ t_tscalar::operator/(double other) const {
 template <typename T>
 t_tscalar
 t_tscalar::operator%(T other) const {
-    std::cout << *this << " % (T) " << other << std::endl;
     t_tscalar other_scalar;
     other_scalar.set(other);
     return this->operator%(other_scalar);

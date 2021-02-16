@@ -19,7 +19,7 @@ t_view_config::t_view_config(
         const std::vector<std::tuple<std::string, std::string, std::vector<t_tscalar>>>& filter,
         const std::vector<std::vector<std::string>>& sort,
         const std::vector<t_computed_column_definition>& computed_columns,
-        const std::vector<std::string>& expressions,
+        const std::vector<t_computed_expression>& expressions,
         const std::string& filter_op,
         bool column_only)
     : m_init(false)
@@ -56,7 +56,7 @@ t_view_config::validate(std::shared_ptr<t_schema> schema) {
     }
 
     for (const auto& expr : m_expressions) {
-        computed_column_names.insert(expr);
+        computed_column_names.insert(expr.m_expression_string);
     }
 
     for (const std::string& col : m_columns) {
@@ -178,7 +178,7 @@ t_view_config::get_computed_columns() const {
     return m_computed_columns;
 }
 
-std::vector<std::string>
+std::vector<t_computed_expression>
 t_view_config::get_expressions() const {
     PSP_VERBOSE_ASSERT(m_init, "touching uninited object");
     return m_expressions;

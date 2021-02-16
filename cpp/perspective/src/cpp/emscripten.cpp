@@ -1365,7 +1365,6 @@ namespace binding {
         auto row_pivots = config.call<std::vector<std::string>>("get_row_pivots");
         auto column_pivots = config.call<std::vector<std::string>>("get_column_pivots");
         auto columns = config.call<std::vector<std::string>>("get_columns");
-        auto expressions = config.call<std::vector<std::string>>("get_expressions");
         auto sort = config.call<std::vector<std::vector<std::string>>>("get_sort");
         auto filter_op = config["filter_op"].as<std::string>();
 
@@ -1486,17 +1485,26 @@ namespace binding {
             }
         }
 
-        for (const std::string& expression : expressions) {
-            // TODO: figure out types
-            t_dtype expression_dtype = t_computed_expression::get_expression_dtype(expression, schema);
-            
-            std::cout << expression << ": " << get_dtype_descr(expression_dtype) << std::endl;
+        auto js_expressions = config.call<std::vector<std::string>>("get_expressions");
+        std::vector<t_computed_expression> expressions;
 
-            if (expression_dtype == DTYPE_NONE) {
-                std::cout << "BAD EXPRESSION for " << expression << std::endl;
-                PSP_COMPLAIN_AND_ABORT("");
+        // convert expression strings to t_computed_expression structs, which
+        // holds additional metadata for each expression such as dtype.
+        for (const std::string& expression_string : js_expressions) {
+            // TODO: figure out types
+            t_dtype dtype = t_compute::get_expression_dtype(expression_string, schema);
+            
+            std::cout << expression_string << ": " << get_dtype_descr(dtype) << std::endl;
+
+            if (dtype == DTYPE_NONE) {
+                std::cout << "BAD EXPRESSION for " << expression_string << std::endl;
+                continue;
             }
-            schema->add_column(expression, expression_dtype);
+
+            auto expr = t_computed_expression(expression_string, dtype);
+            expressions.push_back(expr);
+
+            schema->add_column(expression_string, dtype);
         }
 
         // create the `t_view_config`
@@ -1720,6 +1728,27 @@ namespace binding {
         return computed_schema;
     }
 
+    t_schema
+    get_table_expression_schema(
+        std::shared_ptr<Table> table,
+        const std::vector<std::string>& j_expressions
+    ) {
+        t_schema expression_schema;
+        std::shared_ptr<t_schema> table_schema = std::make_shared<t_schema>(table->get_schema());
+
+        for (const auto& expression : j_expressions) {
+            t_dtype dtype = t_compute::get_expression_dtype(expression, table_schema);
+            if (dtype == DTYPE_NONE) {
+                std::cout << "[get_table_expression_schema] " << expression << " resolves to a column of invalid type." << std::endl;
+                continue;
+            }
+
+            expression_schema.add_column(expression, dtype);
+        }
+
+        return expression_schema;
+    }
+
     std::vector<t_dtype>
     get_computation_input_types(const std::string& computed_function_name) {
         t_computed_function_name function = str_to_computed_function_name(computed_function_name);
@@ -1770,7 +1799,7 @@ int
 main(int argc, char** argv) {
 // seed the computations vector
 t_computed_column::make_computations();
-t_computed_expression::init();
+t_compute::init();
 
 // clang-format off
 EM_ASM({
@@ -1957,7 +1986,7 @@ EMSCRIPTEN_BINDINGS(perspective) {
             const std::vector<std::tuple<std::string, std::string, std::vector<t_tscalar>>>&,
             const std::vector<std::vector<std::string>>&,
             const std::vector<t_computed_column_definition>&,
-            const std::vector<std::string>&,
+            const std::vector<t_computed_expression>&,
             const std::string,
             bool>()
         .smart_ptr<std::shared_ptr<t_view_config>>("shared_ptr<t_view_config>")
@@ -2244,6 +2273,7 @@ EMSCRIPTEN_BINDINGS(perspective) {
     function("scalar_to_val", &scalar_to_val);
     function("get_computed_functions", &get_computed_functions);
     function("get_table_computed_schema", &get_table_computed_schema<t_val>);
+    function("get_table_expression_schema", &get_table_expression_schema);
     function("get_computation_input_types", &get_computation_input_types);
     function("is_valid_datetime", &is_valid_datetime);
 }
