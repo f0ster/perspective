@@ -1455,7 +1455,7 @@ export default function(Module) {
                 }
 
                 validated_expressions.push(
-                    expr.replace(/\$'(.+?[^\\])'/g, (_, p1) => {
+                    expr.replace(/\$'(.*?[^\\])'/g, (_, p1) => {
                         return `col('${p1}')`;
                         // if (table_schema[p1]) {
                         //     return `col('${p1}')`;

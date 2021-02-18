@@ -423,7 +423,8 @@ template<>
 class numeric_limits<perspective::t_tscalar> {
     public:
         static perspective::t_tscalar quiet_NaN() {
-            std::cout << "NAN called" << std::endl;
+            // TODO: could stop allocating all those nans and fallback to
+            // a static nan value?
             return perspective::mknone();
         }
 

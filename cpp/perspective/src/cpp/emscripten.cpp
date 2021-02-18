@@ -1492,19 +1492,9 @@ namespace binding {
         // holds additional metadata for each expression such as dtype.
         for (const std::string& expression_string : js_expressions) {
             // TODO: figure out types
-            t_dtype dtype = t_compute::get_expression_dtype(expression_string, schema);
-            
-            std::cout << expression_string << ": " << get_dtype_descr(dtype) << std::endl;
-
-            if (dtype == DTYPE_NONE) {
-                std::cout << "BAD EXPRESSION for " << expression_string << std::endl;
-                continue;
-            }
-
-            auto expr = t_computed_expression(expression_string, dtype);
+            t_computed_expression expr = t_compute::precompute(expression_string, schema);
             expressions.push_back(expr);
-
-            schema->add_column(expression_string, dtype);
+            schema->add_column(expression_string, expr.m_dtype);
         }
 
         // create the `t_view_config`
@@ -1734,17 +1724,17 @@ namespace binding {
         const std::vector<std::string>& j_expressions
     ) {
         t_schema expression_schema;
-        std::shared_ptr<t_schema> table_schema = std::make_shared<t_schema>(table->get_schema());
+        // std::shared_ptr<t_schema> table_schema = std::make_shared<t_schema>(table->get_schema());
 
-        for (const auto& expression : j_expressions) {
-            t_dtype dtype = t_compute::get_expression_dtype(expression, table_schema);
-            if (dtype == DTYPE_NONE) {
-                std::cout << "[get_table_expression_schema] " << expression << " resolves to a column of invalid type." << std::endl;
-                continue;
-            }
+        // for (const auto& expression : j_expressions) {
+        //     t_dtype dtype = t_compute::get_expression_dtype(expression, table_schema);
+        //     if (dtype == DTYPE_NONE) {
+        //         std::cout << "[get_table_expression_schema] " << expression << " resolves to a column of invalid type." << std::endl;
+        //         continue;
+        //     }
 
-            expression_schema.add_column(expression, dtype);
-        }
+        //     expression_schema.add_column(expression, dtype);
+        // }
 
         return expression_schema;
     }

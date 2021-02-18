@@ -154,7 +154,7 @@ inline bool string_to_real(Iterator& itr_external, const Iterator end, t_tscalar
 
 // exprtk needs to be imported after the type tags have been declared.
 #define exprtk_disable_rtl_io_file
-#define exprtk_enable_debugging
+// #define exprtk_enable_debugging
 #include <exprtk.hpp>
 
 namespace exprtk {
@@ -610,8 +610,6 @@ inline bool string_to_real(Iterator& itr_external, const Iterator end, t_tscalar
 
     negative ? t.set(-d) :  t.set(d);
     t.m_type = perspective::DTYPE_FLOAT64;
-
-    std::cout << "parsed: " << t.repr() << std::endl;
 
     return true;
 }

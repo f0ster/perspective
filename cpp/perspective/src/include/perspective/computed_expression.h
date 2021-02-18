@@ -18,6 +18,7 @@
 #include <perspective/rlookup.h>
 #include <perspective/computed_function.h>
 #include <date/date.h>
+#include <tsl/hopscotch_set.h>
 
 // a header that includes exprtk and overload definitions for `t_tscalar` so
 // it can be used inside exprtk.
@@ -27,9 +28,14 @@ namespace perspective {
 
 struct PERSPECTIVE_EXPORT t_computed_expression {
     t_computed_expression() = default;
-    t_computed_expression(const std::string& expression_string, t_dtype dtype);
+    t_computed_expression(
+        const std::string& expression_string,
+        const tsl::hopscotch_set<std::string>& input_columns,
+        t_dtype dtype);
 
     std::string m_expression_string;
+    std::string m_parsed_expression_string;
+    tsl::hopscotch_set<std::string> m_input_columns;
     t_dtype m_dtype;
 };
 
@@ -47,7 +53,7 @@ public:
         std::shared_ptr<t_data_table> flattened,
         const std::vector<t_rlookup>& changed_rows);
 
-    static t_dtype get_expression_dtype(
+    static t_computed_expression precompute(
         const std::string& expression,
         std::shared_ptr<t_schema> schema
     );

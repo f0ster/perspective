@@ -12,13 +12,56 @@
 namespace perspective {
 std::shared_ptr<exprtk::parser<t_tscalar>> t_compute::PARSER = std::make_shared<exprtk::parser<t_tscalar>>();
 
+// std::regex t_compute::COLUMN_REGEX = std::regex("\\$'(.*?[^\\])'");
+
+// t_compute_column_resolver<t_tscalar> t_compute::COLUMN_RESOLVER = t_compute_column_resolver<t_tscalar>();
+
 t_computed_expression::t_computed_expression(
-    const std::string& expression_string, t_dtype dtype)
+        const std::string& expression_string,
+        const tsl::hopscotch_set<std::string>& input_columns,
+        t_dtype dtype)
     : m_expression_string(expression_string)
-    , m_dtype(dtype) {}
+    , m_input_columns(std::move(input_columns))
+    , m_dtype(dtype) {
+    }
 
 void
-t_compute::init() {}
+t_compute::init() {
+    PARSER->enable_unknown_symbol_resolver();
+}
+
+// template <typename T>
+// t_compute_column_resolver<T>::t_compute_column_resolver() : usr_t(usr_t::e_usrmode_extended) {}
+
+// template <typename T>
+// bool
+// t_compute_column_resolver<T>::process(const std::string& unknown_symbol, exprtk::symbol_table<T>& symbol_table, std::string& error_message) {
+//     bool result = false;
+
+//     std::cout << "checking " << unknown_symbol << std::endl;
+//     error_message = "BAD symbol";
+
+//     // if (0 == unknown_symbol.find("var_")) {
+//     //     // Default value of zero
+//     //     result = symbol_table.create_variable(unknown_symbol,0);
+
+//     //     if (!result)
+//     //     {
+//     //         error_message = "Failed to create variable...";
+//     //     }
+//     // } else if (0 == unknown_symbol.find("str_")) {
+//     //     // Default value of empty string
+//     //     result = symbol_table.create_stringvar(unknown_symbol,"");
+
+//     //     if (!result)
+//     //     {
+//     //         error_message = "Failed to create string variable...";
+//     //     }
+//     // } else
+//     //     error_message = "Indeterminable symbol type.";
+
+//     return result;
+// }
 
 void
 t_compute::compute(
@@ -30,14 +73,18 @@ t_compute::compute(
 
     // register the data table with col() so it can grab values from
     // each column.
-    computed_function::col<t_tscalar> col_fn(data_table);
+    // computed_function::col<t_tscalar> col_fn(data_table, expression.m_input_columns);
+    // sym_table.add_function("col", col_fn);
     // TODO: move to global functions symbol table
     // computed_function::toupper<t_tscalar> toupper_fn = computed_function::toupper<t_tscalar>();
-    sym_table.add_function("col", col_fn);
     // sym_table.add_function("toupper", toupper_fn);
 
     exprtk::expression<t_tscalar> expr_definition;
     expr_definition.register_symbol_table(sym_table);
+
+    auto stop1 = std::chrono::high_resolution_clock::now();
+    auto duration1 = std::chrono::duration_cast<std::chrono::microseconds>(stop1 - start); 
+    std::cout << "[compute] register symtable: " << duration1.count() << std::endl;
 
     if (!t_compute::PARSER->compile(expression.m_expression_string, expr_definition)) {
         std::stringstream ss;
@@ -50,11 +97,13 @@ t_compute::compute(
         PSP_COMPLAIN_AND_ABORT(ss.str());
     }
     
+    auto stop2 = std::chrono::high_resolution_clock::now();
+    auto duration2 = std::chrono::duration_cast<std::chrono::microseconds>(stop2 - stop1); 
+    std::cout << "[compute] parse: " << duration2.count() << std::endl;
+
     // create or get output column
     auto output_column = data_table->add_column_sptr(
         expression.m_expression_string, expression.m_dtype, true);
-
-    std::cout << "col: " << expression.m_expression_string << ", " << get_dtype_descr(expression.m_dtype) << std::endl;
 
     output_column->reserve(data_table->size());
 
@@ -63,9 +112,13 @@ t_compute::compute(
         output_column->set_scalar(ridx, value);
     }
 
+    auto stop3 = std::chrono::high_resolution_clock::now();
+    auto duration3 = std::chrono::duration_cast<std::chrono::microseconds>(stop3 - stop2); 
+    std::cout << "[compute] make and write to column: " << duration3.count() << std::endl;
+
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); 
-    std::cout << "compute: " << duration.count() << std::endl;
+    std::cout << "[compute] total: " << duration.count() << std::endl;
 };
 
 void
@@ -78,10 +131,10 @@ t_compute::recompute(
     exprtk::symbol_table<t_tscalar> sym_table;
     sym_table.add_constants();
 
-    // TODO: will break if flattened[row] is null - add col(tbl, flattened)
-    computed_function::col<t_tscalar> col_fn(flattened);
+    // TODO: will break if flattened[row] is null - add col*
+    // computed_function::col<t_tscalar> col_fn(flattened, expression.m_input_columns);
+    // sym_table.add_function("col", col_fn);
     // computed_function::toupper<t_tscalar> toupper_fn = computed_function::toupper<t_tscalar>();
-    sym_table.add_function("col", col_fn);
     // sym_table.add_function("toupper", toupper_fn);
 
     exprtk::expression<t_tscalar> expr_definition;
@@ -128,11 +181,11 @@ t_compute::recompute(
 
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); 
-    std::cout << "recompute exprtk: " << duration.count() << std::endl;
+    std::cout << "[recompute] took: " << duration.count() << std::endl;
 }
 
-t_dtype
-t_compute::get_expression_dtype(
+t_computed_expression
+t_compute::precompute(
     const std::string& expression,
     std::shared_ptr<t_schema> schema
 ) {
@@ -142,33 +195,44 @@ t_compute::get_expression_dtype(
 
     // register the data table with col() so it can grab values from
     // each column.
-    computed_function::col<t_tscalar> col_fn(schema);
+    // computed_function::col<t_tscalar> col_fn(schema);
+    // sym_table.add_function("col", col_fn);
+
     // computed_function::toupper<t_tscalar> toupper_fn = computed_function::toupper<t_tscalar>();
-    sym_table.add_function("col", col_fn);
     // sym_table.add_function("toupper", toupper_fn);
 
     exprtk::expression<t_tscalar> expr_definition;
     expr_definition.register_symbol_table(sym_table);
+    
+    /**
+     * basically, replace $'col' with c1, c2, c15, c100 etc., store it
+     * in the parsed_expression_string field. now that the colnames have
+     * been converted to unknown symbols, they can be looked up in the
+     * symbol table and the vectors can be fetched all at once.
+     * 
+     * $'sales', $'profit', $'abc def hijk' -> col1, col0, col12 (idx in schema)
+     * symbol table will see these symbols and the custom unknown symbol
+     * resolver will resolve them into vectors of t_tscalars in the symtable.
+     */
+   
 
     if (!t_compute::PARSER->compile(expression, expr_definition)) {
         std::stringstream ss;
-        ss << "[get_expression_dtype] Failed to parse expression: `"
+        ss << "[precompute] Failed to parse expression: `"
             << expression
             << "`, failed with error: "
             << t_compute::PARSER->error().c_str()
             << std::endl;
-
-        return DTYPE_NONE;
+        PSP_COMPLAIN_AND_ABORT(ss.str());
     }
 
     t_tscalar v = expr_definition.value();
 
-    std::cout << "get_dtype value: " << v.repr() << std::endl;
-
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); 
-    std::cout << "get dtype took: " << duration.count() << std::endl;
-    return v.get_dtype();
+    std::cout << "[precompute] took: " << duration.count() << std::endl;
+
+    return t_computed_expression(expression, {}, v.get_dtype());
 }
 
 } // end namespace perspective

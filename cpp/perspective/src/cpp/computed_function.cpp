@@ -24,16 +24,21 @@ using float32 = float;
 using float64 = double;
 
 template <typename T>
-col<T>::col(std::shared_ptr<t_data_table> data_table)
-    : m_data_table(data_table)
-    , m_schema(nullptr)
+col<T>::col(std::shared_ptr<t_data_table> data_table, const tsl::hopscotch_set<std::string>& input_columns)
+    : m_schema(nullptr)
+    , m_input_columns(std::move(input_columns))
     , m_columns({})
-    , m_ridxs({}) {}
+    , m_ridxs({}) {
+        // TODO: move into init()?
+        for (const auto& column_name : input_columns) {
+            m_columns[column_name] = data_table->get_column(column_name);
+            m_ridxs[column_name] = 0;
+        }
+    }
 
 template <typename T>
 col<T>::col(std::shared_ptr<t_schema> schema)
-    : m_data_table(nullptr)
-    , m_schema(schema)
+    : m_schema(schema)
     , m_columns({})
     , m_ridxs({}) {}
 
@@ -42,7 +47,6 @@ col<T>::~col() {}
 
 template <typename T>
 T col<T>::next(
-    std::shared_ptr<t_column> column,
     const std::string& column_name) {
     std::cout << "NOT IMPLEMENTED" << std::endl;
     std::string error = "next<T>() Not implemented!\n";
@@ -51,10 +55,9 @@ T col<T>::next(
 
 template <>
 t_tscalar col<t_tscalar>::next(
-    std::shared_ptr<t_column> column,
     const std::string& column_name) {
     t_uindex ridx = m_ridxs[column_name];
-    t_tscalar rval = column->get_scalar(ridx);
+    t_tscalar rval = m_columns[column_name]->get_scalar(ridx);
     m_ridxs[column_name] += 1;
     return rval;
 }
@@ -73,39 +76,17 @@ T col<T>::operator()(t_parameter_list parameters) {
     t_string_view param = t_string_view(parameters[0]);
     std::string column_name(param.begin(), param.size());
 
-    if (m_data_table == nullptr && m_schema != nullptr) {
-        if (m_schema->has_column(column_name)) {
-            t_tscalar rval;
-            // scalar is valid here, as operations would fail and return
-            // none if the inputs are not valid scalars.
-            rval.m_status = STATUS_VALID;
-            rval.m_type = m_schema->get_dtype(column_name);
-            return rval;
-        } else {
-            std::stringstream ss;
-            ss << column_name << " does not exist in schema!" << std::endl;
-            std::cout << ss.str();
-            PSP_COMPLAIN_AND_ABORT(ss.str());
-        }
+    if (m_schema != nullptr) {
+        t_tscalar rval;
+        // scalar is valid here, as operations would fail and return
+        // none if the inputs are not valid scalars.
+        rval.m_status = STATUS_VALID;
+        rval.m_type = m_schema->get_dtype(column_name);
+        m_input_columns.insert(column_name);
+        return rval;
     }
 
-    if (m_columns.count(column_name) == 1) {
-        auto column = m_columns[column_name];
-        return next(column, column_name);
-    } else {
-        auto column = m_data_table->operator[](column_name);
-
-        if (column == nullptr) {
-            std::stringstream ss;
-            ss << column_name << " does not exist!" << std::endl;
-            std::cout << ss.str();
-            PSP_COMPLAIN_AND_ABORT(ss.str());
-        }
-
-        m_columns[column_name] = column;
-        m_ridxs[column_name] = 0;
-        return next(column, column_name);
-    }
+    return next(column_name);
 }
 
 template <typename T>

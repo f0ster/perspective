@@ -20,6 +20,7 @@
 #include <boost/algorithm/string.hpp>
 #include <type_traits>
 #include <date/date.h>
+#include <tsl/hopscotch_set.h>
 
 namespace perspective {
 
@@ -49,17 +50,17 @@ struct col : public exprtk::igeneric_function<T> {
     typedef typename exprtk::igeneric_function<T>::generic_type t_generic_type;
     typedef typename t_generic_type::string_view t_string_view;
 
-    col(std::shared_ptr<t_data_table> data_table);
+    col(std::shared_ptr<t_data_table> data_table, const tsl::hopscotch_set<std::string>& input_columns);
     col(std::shared_ptr<t_schema> schema);
 
     ~col();
 
-    T next(std::shared_ptr<t_column> column, const std::string& column_name);
+    T next(const std::string& column_name);
 
     T operator()(t_parameter_list parameters);
 
-    std::shared_ptr<t_data_table> m_data_table;
     std::shared_ptr<t_schema> m_schema;
+    tsl::hopscotch_set<std::string> m_input_columns;
     std::map<std::string, std::shared_ptr<t_column>> m_columns;
     std::map<std::string, t_uindex> m_ridxs;
 };
