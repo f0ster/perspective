@@ -136,8 +136,6 @@ export class ActionElement extends DomElement {
             throw new Error("Expression cannot reference empty column $''!");
         }
 
-        expression = expression.replace(/\$'(.*?[^\\])'/g, (_, p1) => `col('${p1}')`);
-
         expressions.push(expression);
 
         console.log(expressions);

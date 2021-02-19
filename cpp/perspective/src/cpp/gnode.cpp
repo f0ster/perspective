@@ -831,7 +831,7 @@ t_gnode::_register_context(const std::string& name, t_ctx_type type, std::int64_
             m_computed_column_map.add_computed_columns(computed_columns); 
             expressions = ctx->get_config().get_expressions();
 
-            for (auto expr : expressions) {
+            for (const auto& expr : expressions) {
                 std::string expression_string = expr.m_expression_string;
 
                 if (m_expression_map.count(expression_string) == 0) {
@@ -857,7 +857,7 @@ t_gnode::_register_context(const std::string& name, t_ctx_type type, std::int64_
             m_computed_column_map.add_computed_columns(computed_columns);
             expressions = ctx->get_config().get_expressions();
 
-            for (auto expr : expressions) {
+            for (const auto& expr : expressions) {
                 std::string expression_string = expr.m_expression_string;
                 if (m_expression_map.count(expression_string) == 0) {
                     m_expression_map[expression_string] = expr;
@@ -878,7 +878,7 @@ t_gnode::_register_context(const std::string& name, t_ctx_type type, std::int64_
             m_computed_column_map.add_computed_columns(computed_columns);
             expressions = ctx->get_config().get_expressions();
 
-            for (auto expr : expressions) {
+            for (const auto& expr : expressions) {
                 std::string expression_string = expr.m_expression_string;
                 if (m_expression_map.count(expression_string) == 0) {
                     m_expression_map[expression_string] = expr;

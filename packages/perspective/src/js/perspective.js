@@ -1047,8 +1047,17 @@ export default function(Module) {
     };
 
     view_config.prototype.get_expressions = function() {
-        let vector = __MODULE__.make_string_vector();
-        return fill_vector(vector, this.expressions);
+        let vector = __MODULE__.make_2d_val_vector();
+        console.log("get_expressions", this.expressions);
+        for (let expression of this.expressions) {
+            let inner = __MODULE__.make_val_vector();
+            console.log("get_expressions:inner:", expression);
+            for (let val of expression) {
+                inner.push_back(val);
+            }
+            vector.push_back(inner);
+        }
+        return vector;
     };
 
     /***************************************************************************
@@ -1447,23 +1456,49 @@ export default function(Module) {
 
         const table_schema = this.schema();
 
+        /**
+         * Transform an expression string into a vector that internally provides
+         * the engine with more metadata in order to efficiently compute the
+         * expression:
+         *
+         * v[0]: the expression string as typed by the user
+         * v[1]: the expression string with $'column' replaced with col0, col1,
+         *  etc., which allows for faster lookup of column values.
+         * v[2]: a map of column keys (col0, col1) to actual column names,
+         *  which will be used in the engine to look up column values.
+         */
         if (config.expressions.length > 0) {
             let validated_expressions = [];
-            for (let expr of config.expressions) {
-                if (expr.includes("$''")) {
+
+            for (let expression_string of config.expressions) {
+                if (expression_string.includes("$''")) {
                     throw new Error("Expression cannot reference empty column $''!");
                 }
 
-                validated_expressions.push(
-                    expr.replace(/\$'(.*?[^\\])'/g, (_, p1) => {
-                        return `col('${p1}')`;
-                        // if (table_schema[p1]) {
-                        //     return `col('${p1}')`;
-                        // } else {
-                        //     throw Error(`Column "${p1}" does not exist in the table schema!`);
-                        // }
-                    })
-                );
+                // Map of column names to column IDs, so that we generate
+                // column IDs correctly without collision.
+                let cname_map = {};
+
+                // Map of column IDs to column names, so the engine can look
+                // up the right column internally without more transforms.
+                let column_id_map = {};
+                let running_cidx = 0;
+
+                // TODO: probably validate columns here as well? although
+                // if the front-end validates through get_expression_schema
+                // then we probably can just take the input as is.
+                let parsed_expression_string = expression_string.replace(/\$'(.*?[^\\])'/g, (_, cname) => {
+                    if (cname_map[cname] === undefined) {
+                        let column_id = `COLUMN${running_cidx}`;
+                        cname_map[cname] = column_id;
+                        column_id_map[column_id] = cname;
+                    }
+
+                    running_cidx++;
+                    return cname_map[cname];
+                });
+
+                validated_expressions.push([expression_string, parsed_expression_string, column_id_map]);
             }
 
             config.expressions = validated_expressions;

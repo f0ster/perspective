@@ -28,15 +28,29 @@ namespace perspective {
 
 struct PERSPECTIVE_EXPORT t_computed_expression {
     t_computed_expression() = default;
+
     t_computed_expression(
         const std::string& expression_string,
-        const tsl::hopscotch_set<std::string>& input_columns,
+        const std::string& parsed_expression_string,
+        const tsl::hopscotch_map<std::string, std::string>& column_id_map,
         t_dtype dtype);
 
     std::string m_expression_string;
     std::string m_parsed_expression_string;
-    tsl::hopscotch_set<std::string> m_input_columns;
+    tsl::hopscotch_map<std::string, std::string> m_column_id_map;
     t_dtype m_dtype;
+};
+
+template <typename T>
+struct PERSPECTIVE_EXPORT t_compute_column_resolver : public exprtk::parser<T>::unknown_symbol_resolver {
+    typedef typename exprtk::parser<T>::unknown_symbol_resolver usr_t;
+
+    t_compute_column_resolver();
+
+    bool process(
+        const std::string& unknown_symbol,
+        exprtk::symbol_table<T>& symbol_table,
+        std::string& error_message);
 };
 
 class PERSPECTIVE_EXPORT t_compute {
@@ -54,7 +68,9 @@ public:
         const std::vector<t_rlookup>& changed_rows);
 
     static t_computed_expression precompute(
-        const std::string& expression,
+        const std::string& expression_string,
+        const std::string& parsed_expression_string,
+        const tsl::hopscotch_map<std::string, std::string>& column_id_map,
         std::shared_ptr<t_schema> schema
     );
 
@@ -63,7 +79,10 @@ public:
     // TODO: minimize copy/allocation/destruct for t_tscalar usage inside
     // the expression parser.
 
-    static std::shared_ptr<exprtk::parser<t_tscalar>> PARSER;
+    static std::shared_ptr<exprtk::parser<t_tscalar>> EXPRESSION_PARSER;
+    static std::shared_ptr<exprtk::parser<t_tscalar>> VALIDATION_PARSER;
+    static t_compute_column_resolver<t_tscalar> COLUMN_RESOLVER;
+    static t_tscalar NONE;
 };
 
 } // end namespace perspective

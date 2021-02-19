@@ -1485,16 +1485,30 @@ namespace binding {
             }
         }
 
-        auto js_expressions = config.call<std::vector<std::string>>("get_expressions");
+        auto js_expressions = config.call<std::vector<std::vector<t_val>>>("get_expressions");
         std::vector<t_computed_expression> expressions;
+        expressions.reserve(js_expressions.size());
 
-        // convert expression strings to t_computed_expression structs, which
-        // holds additional metadata for each expression such as dtype.
-        for (const std::string& expression_string : js_expressions) {
-            // TODO: figure out types
-            t_computed_expression expr = t_compute::precompute(expression_string, schema);
-            expressions.push_back(expr);
-            schema->add_column(expression_string, expr.m_dtype);
+        for (const std::vector<t_val>& expr : js_expressions) {
+            // not a public API, so we are sure the correct elements
+            // are present in the vector.
+            std::string expression_string = expr[0].as<std::string>();
+            std::string parsed_expression_string = expr[1].as<std::string>();
+            tsl::hopscotch_map<std::string, std::string> column_id_map;
+
+            // map of column names to column indices
+            t_val j_column_id_keys = t_val::global("Object").call<t_val>("keys", expr[2]);
+            auto column_ids = vecFromArray<t_val, std::string>(j_column_id_keys);
+
+            for (const std::string& column_id : column_ids) {
+                column_id_map[column_id] = expr[2][column_id].as<std::string>();
+            }
+
+            t_computed_expression expression = t_compute::precompute(
+                expression_string, parsed_expression_string, column_id_map, schema);
+
+            expressions.push_back(expression);
+            schema->add_column(expression_string, expression.m_dtype);
         }
 
         // create the `t_view_config`
