@@ -51,7 +51,7 @@ public:
     
     static void recompute(
         t_computed_expression expression,
-        std::shared_ptr<t_data_table> tbl,
+        std::shared_ptr<t_data_table> gstate_table,
         std::shared_ptr<t_data_table> flattened,
         const std::vector<t_rlookup>& changed_rows);
 
@@ -62,14 +62,8 @@ public:
         std::shared_ptr<t_schema> schema
     );
 
-    // TODO: use this in table::computed_schema
-    // rename computed_schema?
-    // TODO: minimize copy/allocation/destruct for t_tscalar usage inside
-    // the expression parser.
-
     static std::shared_ptr<exprtk::parser<t_tscalar>> EXPRESSION_PARSER;
     static std::shared_ptr<exprtk::parser<t_tscalar>> VALIDATION_PARSER;
-    static t_tscalar NONE;
 };
 
 } // end namespace perspective

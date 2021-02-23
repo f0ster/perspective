@@ -12,7 +12,6 @@
 namespace perspective {
 std::shared_ptr<exprtk::parser<t_tscalar>> t_compute::EXPRESSION_PARSER = std::make_shared<exprtk::parser<t_tscalar>>();
 std::shared_ptr<exprtk::parser<t_tscalar>> t_compute::VALIDATION_PARSER = std::make_shared<exprtk::parser<t_tscalar>>();
-t_tscalar t_compute::NONE = mknone();
 
 t_computed_expression::t_computed_expression(
         const std::string& expression_string,
@@ -35,29 +34,25 @@ t_compute::compute(
     std::shared_ptr<t_data_table> data_table) {
     auto start = std::chrono::high_resolution_clock::now(); 
     exprtk::symbol_table<t_tscalar> sym_table;
+    // TODO: global constant symtable
     sym_table.add_constants();
-
-    // register the data table with col() so it can grab values from
-    // each column.
-    // TODO: move to global functions symbol table
-    // computed_function::toupper<t_tscalar> toupper_fn = computed_function::toupper<t_tscalar>();
-    // sym_table.add_function("toupper", toupper_fn);
 
     exprtk::expression<t_tscalar> expr_definition;
     std::vector<std::pair<std::string, t_tscalar>> values;
     tsl::hopscotch_map<std::string, std::shared_ptr<t_column>> columns;
 
-    values.resize(expression.m_column_ids.size());
-    columns.reserve(expression.m_column_ids.size());
+    auto num_input_columns = expression.m_column_ids.size();
+    values.resize(num_input_columns);
+    columns.reserve(num_input_columns);
 
-    for (t_uindex cidx = 0; cidx < expression.m_column_ids.size(); ++cidx) {
+    for (t_uindex cidx = 0; cidx < num_input_columns; ++cidx) {
         const std::string& column_id = expression.m_column_ids[cidx].first;
         const std::string& column_name = expression.m_column_ids[cidx].second;
-        std::shared_ptr<t_column> column = data_table->get_column(column_name);
-        columns[column_id] = column;
+        columns[column_id] = data_table->get_column(column_name);
 
         t_tscalar rval;
-        rval.m_type = column->get_dtype();
+        rval.m_type = columns[column_id]->get_dtype();
+
         values[cidx] = std::pair<std::string, t_tscalar>(column_id, rval);
         sym_table.add_variable(column_id, values[cidx].second);
     }
@@ -88,12 +83,12 @@ t_compute::compute(
     auto output_column = data_table->add_column_sptr(
         expression.m_expression_string, expression.m_dtype, true);
 
-    output_column->reserve(data_table->size());
+    auto num_rows = data_table->size();
+    output_column->reserve(num_rows);
 
-    for (t_uindex ridx = 0; ridx < data_table->size(); ++ridx) {
-        for (t_uindex cidx = 0; cidx < expression.m_column_ids.size(); ++cidx) {
+    for (t_uindex ridx = 0; ridx < num_rows; ++ridx) {
+        for (t_uindex cidx = 0; cidx < num_input_columns; ++cidx) {
             const std::string& column_id = expression.m_column_ids[cidx].first;
-            const std::string& column_name = expression.m_column_ids[cidx].second;
             values[cidx].second.set(columns[column_id]->get_scalar(ridx));
         }
     
@@ -114,20 +109,47 @@ t_compute::compute(
 void
 t_compute::recompute(
     t_computed_expression expression,
-    std::shared_ptr<t_data_table> tbl,
+    std::shared_ptr<t_data_table> gstate_table,
     std::shared_ptr<t_data_table> flattened,
     const std::vector<t_rlookup>& changed_rows) {
     auto start = std::chrono::high_resolution_clock::now(); 
     exprtk::symbol_table<t_tscalar> sym_table;
     sym_table.add_constants();
 
-    // TODO: will break if flattened[row] is null - add col*
-    // computed_function::col<t_tscalar> col_fn(flattened, expression.m_input_columns);
-    // sym_table.add_function("col", col_fn);
-    // computed_function::toupper<t_tscalar> toupper_fn = computed_function::toupper<t_tscalar>();
-    // sym_table.add_function("toupper", toupper_fn);
-
     exprtk::expression<t_tscalar> expr_definition;
+    std::vector<std::pair<std::string, t_tscalar>> values;
+
+    /**
+     * To properly recompute columns when updates have been applied, we need 
+     * to keep both the columns from flattened (the table that contains the 
+     * new round of update data) and the gstate_table (the master table that 
+     * contains the entire state of the Perspective table up to this point).
+     * 
+     * This is especially important for partial updates, where cells can be
+     * `null` or `undefined`, and we need to apply/not apply computations
+     * based on both the value in `flattened` and the `gstate_table`.
+     */
+    tsl::hopscotch_map<std::string, std::shared_ptr<t_column>> flattened_columns;
+    tsl::hopscotch_map<std::string, std::shared_ptr<t_column>> gstate_table_columns;
+
+    auto num_input_columns = expression.m_column_ids.size();
+
+    values.resize(num_input_columns);
+    flattened_columns.reserve(num_input_columns);
+    gstate_table_columns.reserve(num_input_columns);
+
+    for (t_uindex cidx = 0; cidx < num_input_columns; ++cidx) {
+        const std::string& column_id = expression.m_column_ids[cidx].first;
+        const std::string& column_name = expression.m_column_ids[cidx].second;
+        flattened_columns[column_id] = flattened->get_column(column_name);
+        gstate_table_columns[column_id] = gstate_table->get_column(column_name);
+
+        t_tscalar rval;
+        rval.m_type = flattened_columns[column_id]->get_dtype();
+        values[cidx] = std::pair<std::string, t_tscalar>(column_id, rval);
+        sym_table.add_variable(column_id, values[cidx].second);
+    }
+
     expr_definition.register_symbol_table(sym_table);
 
     if (!t_compute::EXPRESSION_PARSER->compile(expression.m_parsed_expression_string, expr_definition)) {
@@ -140,18 +162,16 @@ t_compute::recompute(
 
         PSP_COMPLAIN_AND_ABORT(ss.str());
     }
-    
-    // TODO implement like compute()
-    // create or get output column
+
     auto output_column = flattened->add_column_sptr(
         expression.m_expression_string, expression.m_dtype, true);
 
-    output_column->reserve(tbl->size());
+    output_column->reserve(gstate_table->size());
 
     t_uindex num_rows = changed_rows.size();
 
     if (num_rows == 0) {
-        num_rows = tbl->size();
+        num_rows = gstate_table->size();
     } 
 
     for (t_uindex idx = 0; idx < num_rows; ++idx) {
@@ -163,8 +183,52 @@ t_compute::recompute(
             row_already_exists = changed_rows[idx].m_exists;
         }
 
-        // TODO: implement unsetting computed output col when an update comes
-        // in and nullifies out one of the values.
+        bool skip_row = false;
+
+        for (t_uindex cidx = 0; cidx < num_input_columns; ++cidx) {
+            const std::string& column_id = expression.m_column_ids[cidx].first;
+
+            t_tscalar arg = flattened_columns[column_id]->get_scalar(ridx);
+
+            if (!arg.is_valid()) {
+                /**
+                 * TODO: should these semantics change now that we don't
+                 * check or maintain intermediates?
+                 * 
+                 * If the row already exists on the gstate table and the cell
+                 * in `flattened` is `STATUS_CLEAR`, do not compute the row.
+                 * 
+                 * If the row does not exist, and the cell in `flattened` is
+                 * `STATUS_INVALID`, do not compute the row.
+                 * 
+                 * `idx` is used here instead of `ridx`, as `ridx` refers
+                 * to the row index in changed_rows, i.e. the changed row
+                 * on the gstate table, whereas idx is the row index
+                 * in the flattened table.
+                 */
+                bool should_unset = 
+                    (row_already_exists && flattened_columns[column_id]->is_cleared(idx)) ||
+                    (!row_already_exists && !flattened_columns[column_id]->is_valid(idx));
+
+                /**
+                 * Use `unset` instead of `clear`, as
+                 * `t_gstate::update_master_table` will reconcile `STATUS_CLEAR`
+                 * into `STATUS_INVALID`.
+                 */
+                if (should_unset) {
+                    output_column->unset(idx);
+                    skip_row = true;
+                    break;  
+                } else {
+                    // Use the value in the master table to compute.
+                    arg = gstate_table_columns[column_id]->get_scalar(ridx);
+                }
+            }
+
+            values[cidx].second.set(arg);
+        }
+
+        if (skip_row) continue;
 
         t_tscalar value = expr_definition.value();
         output_column->set_scalar(ridx, value);

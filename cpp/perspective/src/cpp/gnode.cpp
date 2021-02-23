@@ -286,7 +286,9 @@ t_gnode::_process_table(t_uindex port_id) {
         // gnode, i.e. from all created contexts.
         _compute_all_columns({flattened});
 
-        _compute({flattened});
+        if (m_expression_map.size() > 0) {
+            _compute_expressions({flattened});
+        }
 
         m_gstate->update_master_table(flattened.get());
 
@@ -339,10 +341,12 @@ t_gnode::_process_table(t_uindex port_id) {
         _process_state.m_flattened_data_table,
         _process_state.m_lookup);
 
-    _recompute(
-        get_table_sptr(),
-        _process_state.m_flattened_data_table,
-        _process_state.m_lookup);
+    if (m_expression_map.size() > 0) {
+        _recompute_expressions(
+            get_table_sptr(),
+            _process_state.m_flattened_data_table,
+            _process_state.m_lookup);
+    }
 
     // Clear delta, prev, current, transitions, existed on EACH call.
     _process_state.clear_transitional_data_tables();
@@ -355,11 +359,13 @@ t_gnode::_process_table(t_uindex port_id) {
             _process_state.m_current_data_table
         });
 
-    _compute({
-        _process_state.m_delta_data_table,
-        _process_state.m_prev_data_table,
-        _process_state.m_current_data_table
-    });
+    if (m_expression_map.size() > 0) {
+        _compute_expressions({
+            _process_state.m_delta_data_table,
+            _process_state.m_prev_data_table,
+            _process_state.m_current_data_table
+        });
+    }
 
     // And re-reserved for the amount of data in `flattened`
     _process_state.reserve_transitional_data_tables(flattened_num_rows);
@@ -470,11 +476,13 @@ t_gnode::_process_table(t_uindex port_id) {
             _process_state.m_current_data_table
         });
 
-    _compute({
-        _process_state.m_delta_data_table,
-        _process_state.m_prev_data_table,
-        _process_state.m_current_data_table
-    });
+    if (m_expression_map.size() > 0) {
+        _compute_expressions({
+            _process_state.m_delta_data_table,
+            _process_state.m_prev_data_table,
+            _process_state.m_current_data_table
+        });
+    }
 
     /**
      * After all columns have been processed (transitional tables written into),
@@ -827,25 +835,23 @@ t_gnode::_register_context(const std::string& name, t_ctx_type type, std::int64_
             set_ctx_state<t_ctx2>(ptr_);
             t_ctx2* ctx = static_cast<t_ctx2*>(ptr_);
             ctx->reset();
+
             computed_columns = ctx->get_config().get_computed_columns();
-            m_computed_column_map.add_computed_columns(computed_columns); 
+            m_computed_column_map.add_computed_columns(computed_columns);
+
+            // Track expressions added by this context
             expressions = ctx->get_config().get_expressions();
-
-            for (const auto& expr : expressions) {
-                std::string expression_string = expr.m_expression_string;
-
-                if (m_expression_map.count(expression_string) == 0) {
-                    m_expression_map[expression_string] = expr;
-                }
-            }
-
+            _register_expressions(expressions);
+    
             if (should_update) {
                 // Compute all valid computed columns + new computed columns that
                 // were added as part of this context. Do so separately from
                 // update_context_from_state, so that registration-specific logic
                 // is centralized in one place.
                 _compute_all_columns({pkeyed_table});
-                _compute({pkeyed_table});
+                if (m_expression_map.size() > 0) {
+                    _compute_expressions({pkeyed_table});
+                }
                 update_context_from_state<t_ctx2>(ctx, pkeyed_table);
             }
         } break;
@@ -853,20 +859,18 @@ t_gnode::_register_context(const std::string& name, t_ctx_type type, std::int64_
             set_ctx_state<t_ctx1>(ptr_);
             t_ctx1* ctx = static_cast<t_ctx1*>(ptr_);
             ctx->reset();
+
             computed_columns = ctx->get_config().get_computed_columns();
             m_computed_column_map.add_computed_columns(computed_columns);
-            expressions = ctx->get_config().get_expressions();
 
-            for (const auto& expr : expressions) {
-                std::string expression_string = expr.m_expression_string;
-                if (m_expression_map.count(expression_string) == 0) {
-                    m_expression_map[expression_string] = expr;
-                }
-            }
+            expressions = ctx->get_config().get_expressions();
+            _register_expressions(expressions);
 
             if (should_update) {
                 _compute_all_columns({pkeyed_table});
-                _compute({pkeyed_table});
+                if (m_expression_map.size() > 0) {
+                    _compute_expressions({pkeyed_table});
+                }
                 update_context_from_state<t_ctx1>(ctx, pkeyed_table);
             }
         } break;
@@ -876,18 +880,15 @@ t_gnode::_register_context(const std::string& name, t_ctx_type type, std::int64_
             ctx->reset();
             computed_columns = ctx->get_config().get_computed_columns();
             m_computed_column_map.add_computed_columns(computed_columns);
-            expressions = ctx->get_config().get_expressions();
 
-            for (const auto& expr : expressions) {
-                std::string expression_string = expr.m_expression_string;
-                if (m_expression_map.count(expression_string) == 0) {
-                    m_expression_map[expression_string] = expr;
-                }
-            }
+            expressions = ctx->get_config().get_expressions();
+            _register_expressions(expressions);
 
             if (should_update) {
                 _compute_all_columns({pkeyed_table});
-                _compute({pkeyed_table});
+                if (m_expression_map.size() > 0) {
+                    _compute_expressions({pkeyed_table});
+                }
                 update_context_from_state<t_ctx0>(ctx, pkeyed_table);
             }
         } break;
@@ -907,8 +908,14 @@ t_gnode::_register_context(const std::string& name, t_ctx_type type, std::int64_
             computed_columns = ctx->get_config().get_computed_columns();
             m_computed_column_map.add_computed_columns(computed_columns);
 
+            expressions = ctx->get_config().get_expressions();
+            _register_expressions(expressions);
+
             if (should_update) {
                 _compute_all_columns({pkeyed_table});
+                if (m_expression_map.size() > 0) {
+                    _compute_expressions({pkeyed_table});
+                }
                 update_context_from_state<t_ctx_grouped_pkey>(ctx, pkeyed_table);
             }
         } break;
@@ -943,6 +950,7 @@ t_gnode::_unregister_context(const std::string& name) {
 
     std::vector<std::string> computed_column_names;
     std::vector<t_computed_expression> expressions;
+
     switch (type) {
         // No computed columns to remove
         case UNIT_CONTEXT: break;
@@ -955,14 +963,9 @@ t_gnode::_unregister_context(const std::string& name) {
             }
             m_computed_column_map.remove_computed_columns(computed_column_names);
 
+            // Remove expressions added by this context
             expressions = ctx->get_config().get_expressions();
-
-            for (const auto& expr : expressions) {
-                std::string expression_string = expr.m_expression_string;
-                if (m_expression_map.count(expression_string) > 0) {
-                    m_expression_map.erase(expression_string);
-                }
-            }
+            _unregister_expressions(expressions);
         } break;
         case ONE_SIDED_CONTEXT: {
             t_ctx1* ctx = static_cast<t_ctx1*>(ctxh.m_ctx);
@@ -973,12 +976,8 @@ t_gnode::_unregister_context(const std::string& name) {
             }
             m_computed_column_map.remove_computed_columns(computed_column_names);
 
-            for (const auto& expr : expressions) {
-                std::string expression_string = expr.m_expression_string;
-                if (m_expression_map.count(expression_string) > 0) {
-                    m_expression_map.erase(expression_string);
-                }
-            }
+            expressions = ctx->get_config().get_expressions();
+            _unregister_expressions(expressions);
         } break;
         case ZERO_SIDED_CONTEXT: {
             t_ctx0* ctx = static_cast<t_ctx0*>(ctxh.m_ctx);
@@ -988,13 +987,8 @@ t_gnode::_unregister_context(const std::string& name) {
                 computed_column_names.push_back(std::get<0>(c));
             }
             m_computed_column_map.remove_computed_columns(computed_column_names);
-
-            for (const auto& expr : expressions) {
-                std::string expression_string = expr.m_expression_string;
-                if (m_expression_map.count(expression_string) > 0) {
-                    m_expression_map.erase(expression_string);
-                }
-            }
+            expressions = ctx->get_config().get_expressions();
+            _unregister_expressions(expressions);
         } break;
         case GROUPED_PKEY_CONTEXT: {
             auto ctx = static_cast<t_ctx_grouped_pkey*>(ctxh.m_ctx);
@@ -1004,13 +998,8 @@ t_gnode::_unregister_context(const std::string& name) {
                 computed_column_names.push_back(std::get<0>(c));
             }
             m_computed_column_map.remove_computed_columns(computed_column_names);
-
-            for (const auto& expr : expressions) {
-                std::string expression_string = expr.m_expression_string;
-                if (m_expression_map.count(expression_string) > 0) {
-                    m_expression_map.erase(expression_string);
-                }
-            }
+            expressions = ctx->get_config().get_expressions();
+            _unregister_expressions(expressions);
         } break;
         default: { PSP_COMPLAIN_AND_ABORT("Unexpected context type"); } break;
     }
@@ -1077,7 +1066,7 @@ t_gnode::notify_contexts(const t_data_table& flattened) {
  */
 
 void
-t_gnode::_compute(
+t_gnode::_compute_expressions(
     std::vector<std::shared_ptr<t_data_table>> tables) {
     for (std::shared_ptr<t_data_table> table : tables) {
         for (const auto& expression : m_expression_map) {
@@ -1087,13 +1076,35 @@ t_gnode::_compute(
 }
 
 void
-t_gnode::_recompute(
+t_gnode::_recompute_expressions(
     std::shared_ptr<t_data_table> tbl,
     std::shared_ptr<t_data_table> flattened,
     const std::vector<t_rlookup>& changed_rows
 ) {
     for (const auto& expression : m_expression_map) {
         t_compute::recompute(expression.second, tbl, flattened, changed_rows);
+    }
+}
+
+void
+t_gnode::_register_expressions(const std::vector<t_computed_expression>& expressions) {
+    for (const auto& expr : expressions) {
+        const std::string& expression_string = expr.m_expression_string;
+
+        if (m_expression_map.count(expression_string) == 0) {
+            m_expression_map[expression_string] = expr;
+        }
+    }
+}
+
+void
+t_gnode::_unregister_expressions(const std::vector<t_computed_expression>& expressions) {
+    for (const auto& expr : expressions) {
+        const std::string& expression_string = expr.m_expression_string;
+
+        if (m_expression_map.count(expression_string) == 1) {
+            m_expression_map.erase(expression_string);
+        }
     }
 }
 

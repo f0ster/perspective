@@ -132,7 +132,23 @@ public:
      */
     void remove_input_port(t_uindex port_id);
 
+    /**
+     * @brief Given a new context, register it with the gnode, compute and
+     * add its computed expression columns, and add its expressions to the
+     * `m_expression_map` managed by the gnode.
+     * 
+     * @param name 
+     * @param type 
+     * @param ptr 
+     */
     void _register_context(const std::string& name, t_ctx_type type, std::int64_t ptr);
+
+    /**
+     * @brief Remove a context by name from the gnode, and remove its
+     * computed expression columns from `m_expression_map`.
+     * 
+     * @param name 
+     */
     void _unregister_context(const std::string& name);
 
     const t_data_table* get_table() const;
@@ -291,13 +307,28 @@ protected:
      *
      * Computed Column Operations
      */
-    void _compute(
+    void _compute_expressions(
         std::vector<std::shared_ptr<t_data_table>> tables);
 
-    void _recompute(
+    void _recompute_expressions(
         std::shared_ptr<t_data_table> tbl,
         std::shared_ptr<t_data_table> flattened,
         const std::vector<t_rlookup>& changed_rows);
+
+    /**
+     * @brief Add each expression to `m_expression_map` if it does not
+     * already exist.
+     * 
+     * @param expressions 
+     */
+    void _register_expressions(const std::vector<t_computed_expression>& expressions);
+
+    /**
+     * @brief Remove expressions from the `m_expression_map`.
+     * 
+     * @param expressions 
+     */
+    void _unregister_expressions(const std::vector<t_computed_expression>& expressions);
 
     /**
      * @brief For all valid computed columns registered with the gnode,
