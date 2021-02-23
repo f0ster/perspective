@@ -93,6 +93,22 @@ public:
         std::vector<t_computed_column_definition> computed_columns) const;
 
     /**
+     * @brief Given an expression and its associated metadata (the parsed
+     * expression string and a vector of input column_ids and column names),
+     * return the dtype of the expression's output column if it is valid, and
+     * DTYPE_NONE otherwise.
+     * 
+     * @param expression_string 
+     * @param parsed_expression_string 
+     * @param column_ids 
+     * @return t_dtype 
+     */
+    t_dtype get_expression_dtype(
+        const std::string& expression_string,
+        const std::string& parsed_expression_string,
+        const std::vector<std::pair<std::string, std::string>>& column_ids) const;
+
+    /**
      * @brief Given a schema, create a `t_gnode` that manages the `t_data_table`.
      *
      * A `t_gnode` and `t_pool` must be created and registered in order for the core engine to

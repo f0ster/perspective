@@ -350,10 +350,13 @@ namespace binding {
         std::shared_ptr<Table> table,
         std::vector<std::vector<T>> j_computed_columns);
 
-    t_schema
-    get_table_expression_schema(
+    template <typename T>
+    std::string
+    get_table_expression_dtype(
         std::shared_ptr<Table> table,
-        const std::vector<std::string>& j_expressions);
+        const std::string& expression_string,
+        const std::string& parsed_expression_string,
+        const T& j_column_ids);
 
     /**
      * @brief Given a string that resolves to a valid computed function name,

@@ -212,6 +212,20 @@ Table::get_computed_schema(
     return computed_schema;
 }
 
+t_dtype
+Table::get_expression_dtype(
+    const std::string& expression_string,
+    const std::string& parsed_expression_string,
+    const std::vector<std::pair<std::string, std::string>>& column_ids) const {
+    const t_schema& schema = get_schema();
+    return t_computed_expression_parser::get_dtype(
+        expression_string,
+        parsed_expression_string,
+        column_ids,
+        schema
+    );
+}
+
 std::shared_ptr<t_gnode>
 Table::make_gnode(const t_schema& in_schema) {
     t_schema out_schema = in_schema.drop({"psp_pkey", "psp_op"}); 

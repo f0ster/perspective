@@ -1489,9 +1489,10 @@ namespace binding {
         std::vector<t_computed_expression> expressions;
         expressions.reserve(js_expressions.size());
 
-        for (const std::vector<t_val>& expr : js_expressions) {
-            // not a public API, so we are sure the correct elements
-            // are present in the vector.
+        // Will either abort() or succeed completely, and this isn't a public
+        // API so we can directly index for speed.
+        for (t_uindex idx = 0; idx < js_expressions.size(); ++idx) {
+            const auto& expr = js_expressions[idx];
             std::string expression_string = expr[0].as<std::string>();
             std::string parsed_expression_string = expr[1].as<std::string>();
             std::vector<std::pair<std::string, std::string>> column_ids;
@@ -1737,26 +1738,29 @@ namespace binding {
         return computed_schema;
     }
 
-    t_schema
-    get_table_expression_schema(
+    template <>
+    std::string
+    get_table_expression_dtype(
         std::shared_ptr<Table> table,
-        const std::vector<std::string>& j_expressions
-    ) {
-        t_schema expression_schema;
-        // std::shared_ptr<t_schema> table_schema = std::make_shared<t_schema>(table->get_schema());
+        const std::string& expression_string,
+        const std::string& parsed_expression_string,
+        const t_val& j_column_ids) {
+        std::vector<std::pair<std::string, std::string>> column_ids;
+        t_val j_column_id_keys = t_val::global("Object").call<t_val>("keys", j_column_ids);
+        auto column_id_keys = vecFromArray<t_val, std::string>(j_column_id_keys);
+        column_ids.resize(column_id_keys.size());
 
-        // for (const auto& expression : j_expressions) {
-        //     t_dtype dtype = t_computed_expression_parser::get_expression_dtype(expression, table_schema);
-        //     if (dtype == DTYPE_NONE) {
-        //         std::cout << "[get_table_expression_schema] " << expression << " resolves to a column of invalid type." << std::endl;
-        //         continue;
-        //     }
+        for (t_uindex cidx = 0; cidx < column_id_keys.size(); ++cidx) {
+            const std::string& column_id = column_id_keys[cidx];
+            column_ids[cidx] = std::pair<std::string, std::string>(column_id, j_column_ids[column_id].as<std::string>());
+        }
 
-        //     expression_schema.add_column(expression, dtype);
-        // }
-
-        return expression_schema;
-    }
+        return dtype_to_str(table->get_expression_dtype(
+            expression_string,
+            parsed_expression_string,
+            column_ids
+        ));
+    };
 
     std::vector<t_dtype>
     get_computation_input_types(const std::string& computed_function_name) {
@@ -1851,6 +1855,7 @@ EMSCRIPTEN_BINDINGS(perspective) {
         .function("size", &Table::size)
         .function("get_schema", &Table::get_schema)
         .function("get_computed_schema", &Table::get_computed_schema)
+        .function("get_expression_dtype", &Table::get_expression_dtype)
         .function("unregister_gnode", &Table::unregister_gnode)
         .function("reset_gnode", &Table::reset_gnode)
         .function("make_port", &Table::make_port)
@@ -2282,7 +2287,7 @@ EMSCRIPTEN_BINDINGS(perspective) {
     function("scalar_to_val", &scalar_to_val);
     function("get_computed_functions", &get_computed_functions);
     function("get_table_computed_schema", &get_table_computed_schema<t_val>);
-    function("get_table_expression_schema", &get_table_expression_schema);
+    function("get_table_expression_dtype", &get_table_expression_dtype<t_val>);
     function("get_computation_input_types", &get_computation_input_types);
     function("is_valid_datetime", &is_valid_datetime);
 }

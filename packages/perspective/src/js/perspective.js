@@ -1048,7 +1048,6 @@ export default function(Module) {
 
     view_config.prototype.get_expressions = function() {
         let vector = __MODULE__.make_2d_val_vector();
-        console.log("get_expressions", this.expressions);
         for (let expression of this.expressions) {
             let inner = __MODULE__.make_val_vector();
             console.log("get_expressions:inner:", expression);
@@ -1298,33 +1297,38 @@ export default function(Module) {
         return new_schema;
     };
 
-    table.prototype.expression_schema = function(expressions, override = true) {
-        const new_schema = {};
+    table.prototype.get_expression_dtype = function(expression_string) {
+        if (!expression_string) return "";
 
-        if (!expressions || expressions.length === 0) return new_schema;
-
-        let vector = __MODULE__.make_string_vector();
-        vector = fill_vector(vector, expressions);
-
-        let expression_schema = __MODULE__.get_table_expression_schema(this._Table, vector);
-        let columns = expression_schema.columns();
-        let types = expression_schema.types();
-
-        for (let key = 0; key < columns.size(); key++) {
-            const name = columns.get(key);
-            const type = types.get(key);
-            if (override && this.overridden_types[name]) {
-                new_schema[name] = this.overridden_types[name];
-            } else {
-                new_schema[name] = get_column_type(type.value);
-            }
+        if (expression_string.includes("$''")) {
+            console.error("Expression cannot reference empty column $''!");
+            return "";
         }
 
-        expression_schema.delete();
-        columns.delete();
-        types.delete();
+        // Map of column names to column IDs, so that we generate
+        // column IDs correctly without collision.
+        let cname_map = {};
 
-        return new_schema;
+        // Map of column IDs to column names, so the engine can look
+        // up the right column internally without more transforms.
+        let column_id_map = {};
+        let running_cidx = 0;
+
+        // TODO: probably validate columns here as well? although
+        // if the front-end validates through get_expression_schema
+        // then we probably can just take the input as is.
+        let parsed_expression_string = expression_string.replace(/\$'(.*?[^\\])'/g, (_, cname) => {
+            if (cname_map[cname] === undefined) {
+                let column_id = `COLUMN${running_cidx}`;
+                cname_map[cname] = column_id;
+                column_id_map[column_id] = cname;
+            }
+
+            running_cidx++;
+            return cname_map[cname];
+        });
+
+        return __MODULE__.get_table_expression_dtype(expression_string, parsed_expression_string, column_id_map);
     };
 
     /**
