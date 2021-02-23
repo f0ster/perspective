@@ -26,7 +26,10 @@
 
 namespace perspective {
 
-struct PERSPECTIVE_EXPORT t_computed_expression {
+class PERSPECTIVE_EXPORT t_computed_expression {
+public:
+    // allow this struct to be copy constructed since we store it in
+    // gnode, config, etc.
     t_computed_expression() = default;
 
     t_computed_expression(
@@ -35,26 +38,49 @@ struct PERSPECTIVE_EXPORT t_computed_expression {
         const std::vector<std::pair<std::string, std::string>>& column_ids,
         t_dtype dtype);
 
+    /**
+     * @brief Compute this expression and add the output column to
+     * `data_table.`
+     * 
+     * @param data_table 
+     */
+    void compute(std::shared_ptr<t_data_table> data_table) const;
+
+    /**
+     * @brief Compute this expression for the rows in `changed_rows`, and
+     * add the output column to `flattened`.
+     */
+    void recompute(
+        std::shared_ptr<t_data_table> gstate_table,
+        std::shared_ptr<t_data_table> flattened,
+        const std::vector<t_rlookup>& changed_rows) const;
+
+    std::string get_expression_string() const;
+    std::string get_parsed_expression_string() const;
+    std::vector<std::pair<std::string, std::string>> get_column_ids() const;
+    t_dtype get_dtype() const;
+
+private:
     std::string m_expression_string;
     std::string m_parsed_expression_string;
     std::vector<std::pair<std::string, std::string>> m_column_ids;
     t_dtype m_dtype;
 };
 
-class PERSPECTIVE_EXPORT t_compute {
+class PERSPECTIVE_EXPORT t_computed_expression_parser {
 public:
     static void init();
 
-    static void compute(
-        t_computed_expression expression,
-        std::shared_ptr<t_data_table> data_table);
-    
-    static void recompute(
-        t_computed_expression expression,
-        std::shared_ptr<t_data_table> gstate_table,
-        std::shared_ptr<t_data_table> flattened,
-        const std::vector<t_rlookup>& changed_rows);
-
+    /**
+     * @brief Given expression strings, validate the expression's dtype and
+     * return a new `t_computed_expression`.
+     * 
+     * @param expression_string 
+     * @param parsed_expression_string 
+     * @param column_ids 
+     * @param schema 
+     * @return t_computed_expression 
+     */
     static t_computed_expression precompute(
         const std::string& expression_string,
         const std::string& parsed_expression_string,
@@ -64,6 +90,7 @@ public:
 
     static std::shared_ptr<exprtk::parser<t_tscalar>> EXPRESSION_PARSER;
     static std::shared_ptr<exprtk::parser<t_tscalar>> VALIDATION_PARSER;
+    static exprtk::symbol_table<t_tscalar> CONSTANTS_SYMTABLE;
 };
 
 } // end namespace perspective

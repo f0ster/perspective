@@ -931,9 +931,10 @@ t_gnode::_register_context(const std::string& name, t_ctx_type type, std::int64_
     }
 
     for (const auto& expr : expressions) {
-        const std::string& expression_string = expr.m_expression_string;
-        t_dtype expression_dtype = expr.m_dtype;
-        gstate_table->add_column_sptr(expression_string, expression_dtype, true);
+        gstate_table->add_column_sptr(
+            expr.get_expression_string(),
+            expr.get_dtype(),
+            true);
     }
 }
 
@@ -949,7 +950,6 @@ t_gnode::_unregister_context(const std::string& name) {
     t_ctx_type type = ctxh.get_type();
 
     std::vector<std::string> computed_column_names;
-    std::vector<t_computed_expression> expressions;
 
     switch (type) {
         // No computed columns to remove
@@ -964,8 +964,7 @@ t_gnode::_unregister_context(const std::string& name) {
             m_computed_column_map.remove_computed_columns(computed_column_names);
 
             // Remove expressions added by this context
-            expressions = ctx->get_config().get_expressions();
-            _unregister_expressions(expressions);
+            _unregister_expressions(ctx->get_config().get_expressions());
         } break;
         case ONE_SIDED_CONTEXT: {
             t_ctx1* ctx = static_cast<t_ctx1*>(ctxh.m_ctx);
@@ -975,9 +974,7 @@ t_gnode::_unregister_context(const std::string& name) {
                 computed_column_names.push_back(std::get<0>(c));
             }
             m_computed_column_map.remove_computed_columns(computed_column_names);
-
-            expressions = ctx->get_config().get_expressions();
-            _unregister_expressions(expressions);
+            _unregister_expressions(ctx->get_config().get_expressions());
         } break;
         case ZERO_SIDED_CONTEXT: {
             t_ctx0* ctx = static_cast<t_ctx0*>(ctxh.m_ctx);
@@ -987,8 +984,7 @@ t_gnode::_unregister_context(const std::string& name) {
                 computed_column_names.push_back(std::get<0>(c));
             }
             m_computed_column_map.remove_computed_columns(computed_column_names);
-            expressions = ctx->get_config().get_expressions();
-            _unregister_expressions(expressions);
+            _unregister_expressions(ctx->get_config().get_expressions());
         } break;
         case GROUPED_PKEY_CONTEXT: {
             auto ctx = static_cast<t_ctx_grouped_pkey*>(ctxh.m_ctx);
@@ -998,8 +994,7 @@ t_gnode::_unregister_context(const std::string& name) {
                 computed_column_names.push_back(std::get<0>(c));
             }
             m_computed_column_map.remove_computed_columns(computed_column_names);
-            expressions = ctx->get_config().get_expressions();
-            _unregister_expressions(expressions);
+            _unregister_expressions(ctx->get_config().get_expressions());
         } break;
         default: { PSP_COMPLAIN_AND_ABORT("Unexpected context type"); } break;
     }
@@ -1070,7 +1065,7 @@ t_gnode::_compute_expressions(
     std::vector<std::shared_ptr<t_data_table>> tables) {
     for (std::shared_ptr<t_data_table> table : tables) {
         for (const auto& expression : m_expression_map) {
-            t_compute::compute(expression.second, table);
+            expression.second.compute(table);
         }
     }
 }
@@ -1082,14 +1077,14 @@ t_gnode::_recompute_expressions(
     const std::vector<t_rlookup>& changed_rows
 ) {
     for (const auto& expression : m_expression_map) {
-        t_compute::recompute(expression.second, tbl, flattened, changed_rows);
+        expression.second.recompute(tbl, flattened, changed_rows);
     }
 }
 
 void
 t_gnode::_register_expressions(const std::vector<t_computed_expression>& expressions) {
     for (const auto& expr : expressions) {
-        const std::string& expression_string = expr.m_expression_string;
+        const std::string& expression_string = expr.get_expression_string();
 
         if (m_expression_map.count(expression_string) == 0) {
             m_expression_map[expression_string] = expr;
@@ -1100,7 +1095,7 @@ t_gnode::_register_expressions(const std::vector<t_computed_expression>& express
 void
 t_gnode::_unregister_expressions(const std::vector<t_computed_expression>& expressions) {
     for (const auto& expr : expressions) {
-        const std::string& expression_string = expr.m_expression_string;
+        const std::string& expression_string = expr.get_expression_string();
 
         if (m_expression_map.count(expression_string) == 1) {
             m_expression_map.erase(expression_string);

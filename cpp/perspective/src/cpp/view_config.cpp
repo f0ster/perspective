@@ -56,7 +56,7 @@ t_view_config::validate(std::shared_ptr<t_schema> schema) {
     }
 
     for (const auto& expr : m_expressions) {
-        computed_column_names.insert(expr.m_expression_string);
+        computed_column_names.insert(expr.get_expression_string());
     }
 
     for (const std::string& col : m_columns) {

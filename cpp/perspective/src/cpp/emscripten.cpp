@@ -1498,8 +1498,7 @@ namespace binding {
 
             // Read the Javascript map of column IDs to column names, and
             // convert them into string pairs. This guarantees iteration
-            // order at the cost of constant time access, which we don't
-            // actually use in this case.
+            // order at the cost of constant time access (which we don't use).
             t_val j_column_id_keys = t_val::global("Object").call<t_val>("keys", expr[2]);
             auto column_id_keys = vecFromArray<t_val, std::string>(j_column_id_keys);
             column_ids.resize(column_id_keys.size());
@@ -1509,11 +1508,12 @@ namespace binding {
                 column_ids[cidx] = std::pair<std::string, std::string>(column_id, expr[2][column_id].as<std::string>());
             }
 
-            t_computed_expression expression = t_compute::precompute(
+            // If the expression cannot be parsed, it will abort() here.
+            t_computed_expression expression = t_computed_expression_parser::precompute(
                 expression_string, parsed_expression_string, column_ids, schema);
 
             expressions.push_back(expression);
-            schema->add_column(expression_string, expression.m_dtype);
+            schema->add_column(expression_string, expression.get_dtype());
         }
 
         // create the `t_view_config`
@@ -1746,7 +1746,7 @@ namespace binding {
         // std::shared_ptr<t_schema> table_schema = std::make_shared<t_schema>(table->get_schema());
 
         // for (const auto& expression : j_expressions) {
-        //     t_dtype dtype = t_compute::get_expression_dtype(expression, table_schema);
+        //     t_dtype dtype = t_computed_expression_parser::get_expression_dtype(expression, table_schema);
         //     if (dtype == DTYPE_NONE) {
         //         std::cout << "[get_table_expression_schema] " << expression << " resolves to a column of invalid type." << std::endl;
         //         continue;
@@ -1808,7 +1808,7 @@ int
 main(int argc, char** argv) {
 // seed the computations vector
 t_computed_column::make_computations();
-t_compute::init();
+t_computed_expression_parser::init();
 
 // clang-format off
 EM_ASM({

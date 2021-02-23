@@ -10,8 +10,9 @@
 #include <perspective/computed_expression.h>
 
 namespace perspective {
-std::shared_ptr<exprtk::parser<t_tscalar>> t_compute::EXPRESSION_PARSER = std::make_shared<exprtk::parser<t_tscalar>>();
-std::shared_ptr<exprtk::parser<t_tscalar>> t_compute::VALIDATION_PARSER = std::make_shared<exprtk::parser<t_tscalar>>();
+std::shared_ptr<exprtk::parser<t_tscalar>> t_computed_expression_parser::EXPRESSION_PARSER = std::make_shared<exprtk::parser<t_tscalar>>();
+std::shared_ptr<exprtk::parser<t_tscalar>> t_computed_expression_parser::VALIDATION_PARSER = std::make_shared<exprtk::parser<t_tscalar>>();
+exprtk::symbol_table<t_tscalar> t_computed_expression_parser::CONSTANTS_SYMTABLE = exprtk::symbol_table<t_tscalar>();
 
 t_computed_expression::t_computed_expression(
         const std::string& expression_string,
@@ -24,30 +25,22 @@ t_computed_expression::t_computed_expression(
     , m_dtype(dtype) {}
 
 void
-t_compute::init() {
-    VALIDATION_PARSER->enable_unknown_symbol_resolver();
-}
-
-void
-t_compute::compute(
-    t_computed_expression expression,
-    std::shared_ptr<t_data_table> data_table) {
+t_computed_expression::compute(
+    std::shared_ptr<t_data_table> data_table) const {
     auto start = std::chrono::high_resolution_clock::now(); 
     exprtk::symbol_table<t_tscalar> sym_table;
-    // TODO: global constant symtable
-    sym_table.add_constants();
 
     exprtk::expression<t_tscalar> expr_definition;
     std::vector<std::pair<std::string, t_tscalar>> values;
     tsl::hopscotch_map<std::string, std::shared_ptr<t_column>> columns;
 
-    auto num_input_columns = expression.m_column_ids.size();
+    auto num_input_columns = m_column_ids.size();
     values.resize(num_input_columns);
     columns.reserve(num_input_columns);
 
     for (t_uindex cidx = 0; cidx < num_input_columns; ++cidx) {
-        const std::string& column_id = expression.m_column_ids[cidx].first;
-        const std::string& column_name = expression.m_column_ids[cidx].second;
+        const std::string& column_id = m_column_ids[cidx].first;
+        const std::string& column_name = m_column_ids[cidx].second;
         columns[column_id] = data_table->get_column(column_name);
 
         t_tscalar rval;
@@ -57,38 +50,29 @@ t_compute::compute(
         sym_table.add_variable(column_id, values[cidx].second);
     }
 
-    auto stop1 = std::chrono::high_resolution_clock::now();
-    auto duration1 = std::chrono::duration_cast<std::chrono::microseconds>(stop1 - start); 
-    std::cout << "[compute] register symtable: " << duration1.count() << std::endl;
-
+    expr_definition.register_symbol_table(t_computed_expression_parser::CONSTANTS_SYMTABLE);
     expr_definition.register_symbol_table(sym_table);
 
-    if (!t_compute::EXPRESSION_PARSER->compile(expression.m_parsed_expression_string, expr_definition)) {
+    if (!t_computed_expression_parser::EXPRESSION_PARSER->compile(m_parsed_expression_string, expr_definition)) {
         std::stringstream ss;
-        ss << "[compute] Failed to parse expression: `"
-            << expression.m_parsed_expression_string
+        ss << "[t_computed_expression::compute] Failed to parse expression: `"
+            << m_parsed_expression_string
             << "`, failed with error: "
-            << t_compute::EXPRESSION_PARSER->error().c_str()
+            << t_computed_expression_parser::EXPRESSION_PARSER->error().c_str()
             << std::endl;
 
         PSP_COMPLAIN_AND_ABORT(ss.str());
     }
-    
-    auto stop2 = std::chrono::high_resolution_clock::now();
-    auto duration2 = std::chrono::duration_cast<std::chrono::microseconds>(stop2 - stop1); 
-    std::cout << "[compute] parse: " << duration2.count() << std::endl;
 
     // create or get output column - m_expression_string is the string as
     // the user typed it.
-    auto output_column = data_table->add_column_sptr(
-        expression.m_expression_string, expression.m_dtype, true);
-
+    auto output_column = data_table->add_column_sptr(m_expression_string, m_dtype, true);
     auto num_rows = data_table->size();
     output_column->reserve(num_rows);
 
     for (t_uindex ridx = 0; ridx < num_rows; ++ridx) {
         for (t_uindex cidx = 0; cidx < num_input_columns; ++cidx) {
-            const std::string& column_id = expression.m_column_ids[cidx].first;
+            const std::string& column_id = m_column_ids[cidx].first;
             values[cidx].second.set(columns[column_id]->get_scalar(ridx));
         }
     
@@ -97,24 +81,18 @@ t_compute::compute(
         output_column->set_scalar(ridx, value);
     }
 
-    auto stop3 = std::chrono::high_resolution_clock::now();
-    auto duration3 = std::chrono::duration_cast<std::chrono::microseconds>(stop3 - stop2); 
-    std::cout << "[compute] make and write to column: " << duration3.count() << std::endl;
-
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); 
     std::cout << "[compute] total: " << duration.count() << std::endl;
 };
 
 void
-t_compute::recompute(
-    t_computed_expression expression,
+t_computed_expression::recompute(
     std::shared_ptr<t_data_table> gstate_table,
     std::shared_ptr<t_data_table> flattened,
-    const std::vector<t_rlookup>& changed_rows) {
+    const std::vector<t_rlookup>& changed_rows) const {
     auto start = std::chrono::high_resolution_clock::now(); 
     exprtk::symbol_table<t_tscalar> sym_table;
-    sym_table.add_constants();
 
     exprtk::expression<t_tscalar> expr_definition;
     std::vector<std::pair<std::string, t_tscalar>> values;
@@ -132,15 +110,15 @@ t_compute::recompute(
     tsl::hopscotch_map<std::string, std::shared_ptr<t_column>> flattened_columns;
     tsl::hopscotch_map<std::string, std::shared_ptr<t_column>> gstate_table_columns;
 
-    auto num_input_columns = expression.m_column_ids.size();
+    auto num_input_columns = m_column_ids.size();
 
     values.resize(num_input_columns);
     flattened_columns.reserve(num_input_columns);
     gstate_table_columns.reserve(num_input_columns);
 
     for (t_uindex cidx = 0; cidx < num_input_columns; ++cidx) {
-        const std::string& column_id = expression.m_column_ids[cidx].first;
-        const std::string& column_name = expression.m_column_ids[cidx].second;
+        const std::string& column_id = m_column_ids[cidx].first;
+        const std::string& column_name = m_column_ids[cidx].second;
         flattened_columns[column_id] = flattened->get_column(column_name);
         gstate_table_columns[column_id] = gstate_table->get_column(column_name);
 
@@ -150,21 +128,21 @@ t_compute::recompute(
         sym_table.add_variable(column_id, values[cidx].second);
     }
 
+    expr_definition.register_symbol_table(t_computed_expression_parser::CONSTANTS_SYMTABLE);
     expr_definition.register_symbol_table(sym_table);
 
-    if (!t_compute::EXPRESSION_PARSER->compile(expression.m_parsed_expression_string, expr_definition)) {
+    if (!t_computed_expression_parser::EXPRESSION_PARSER->compile(m_parsed_expression_string, expr_definition)) {
         std::stringstream ss;
-        ss << "[recompute] Failed to parse expression: `"
-            << expression.m_parsed_expression_string
+        ss << "[t_computed_expression::recompute] Failed to parse expression: `"
+            << m_parsed_expression_string
             << "`, failed with error: "
-            << t_compute::EXPRESSION_PARSER->error().c_str()
+            << t_computed_expression_parser::EXPRESSION_PARSER->error().c_str()
             << std::endl;
 
         PSP_COMPLAIN_AND_ABORT(ss.str());
     }
 
-    auto output_column = flattened->add_column_sptr(
-        expression.m_expression_string, expression.m_dtype, true);
+    auto output_column = flattened->add_column_sptr(m_expression_string, m_dtype, true);
 
     output_column->reserve(gstate_table->size());
 
@@ -186,7 +164,7 @@ t_compute::recompute(
         bool skip_row = false;
 
         for (t_uindex cidx = 0; cidx < num_input_columns; ++cidx) {
-            const std::string& column_id = expression.m_column_ids[cidx].first;
+            const std::string& column_id = m_column_ids[cidx].first;
 
             t_tscalar arg = flattened_columns[column_id]->get_scalar(ridx);
 
@@ -196,10 +174,12 @@ t_compute::recompute(
                  * check or maintain intermediates?
                  * 
                  * If the row already exists on the gstate table and the cell
-                 * in `flattened` is `STATUS_CLEAR`, do not compute the row.
+                 * in `flattened` is `STATUS_CLEAR`, do not compute the row and
+                 * unset its value in the output column.
                  * 
                  * If the row does not exist, and the cell in `flattened` is
-                 * `STATUS_INVALID`, do not compute the row.
+                 * `STATUS_INVALID`, do not compute the row and unset its value
+                 * in the output column.
                  * 
                  * `idx` is used here instead of `ridx`, as `ridx` refers
                  * to the row index in changed_rows, i.e. the changed row
@@ -239,8 +219,34 @@ t_compute::recompute(
     std::cout << "[recompute] took: " << duration.count() << std::endl;
 }
 
+std::string
+t_computed_expression::get_expression_string() const {
+    return m_expression_string;
+}
+
+std::string
+t_computed_expression::get_parsed_expression_string() const {
+    return m_parsed_expression_string;
+}
+
+std::vector<std::pair<std::string, std::string>>
+t_computed_expression::get_column_ids() const {
+    return m_column_ids;
+}
+
+t_dtype
+t_computed_expression::get_dtype() const {
+    return m_dtype;
+}
+
+void
+t_computed_expression_parser::init() {
+    VALIDATION_PARSER->enable_unknown_symbol_resolver();
+    CONSTANTS_SYMTABLE.add_constants();
+}
+
 t_computed_expression
-t_compute::precompute(
+t_computed_expression_parser::precompute(
     const std::string& expression_string,
     const std::string& parsed_expression_string,
     const std::vector<std::pair<std::string, std::string>>& column_ids,
@@ -252,25 +258,14 @@ t_compute::precompute(
 
     exprtk::expression<t_tscalar> expr_definition;
     expr_definition.register_symbol_table(sym_table);
-    
-    /**
-     * basically, replace $'col' with c1, c2, c15, c100 etc., store it
-     * in the parsed_expression_string field. now that the colnames have
-     * been converted to unknown symbols, they can be looked up in the
-     * symbol table and the vectors can be fetched all at once.
-     * 
-     * $'sales', $'profit', $'abc def hijk' -> col1, col0, col12 (idx in schema)
-     * symbol table will see these symbols and the custom unknown symbol
-     * resolver will resolve them into vectors of t_tscalars in the symtable.
-     */
 
     // default unknown symbol resolution will allow for parse.
-    if (!t_compute::VALIDATION_PARSER->compile(parsed_expression_string, expr_definition)) {
+    if (!t_computed_expression_parser::VALIDATION_PARSER->compile(parsed_expression_string, expr_definition)) {
         std::stringstream ss;
         ss << "[precompute] Failed to validate expression: `"
             << parsed_expression_string
             << "`, failed with error: "
-            << t_compute::VALIDATION_PARSER->error().c_str()
+            << t_computed_expression_parser::VALIDATION_PARSER->error().c_str()
             << std::endl;
         PSP_COMPLAIN_AND_ABORT(ss.str());
     }
@@ -282,7 +277,11 @@ t_compute::precompute(
     std::cout << "[precompute] took: " << duration.count() << std::endl;
 
     std::cout << "dtype: " << get_dtype_descr(v.get_dtype()) << std::endl;
-    return t_computed_expression(expression_string, parsed_expression_string, column_ids, v.get_dtype());
+    return t_computed_expression(
+        expression_string,
+        parsed_expression_string,
+        column_ids,
+        v.get_dtype());
 }
 
 } // end namespace perspective
