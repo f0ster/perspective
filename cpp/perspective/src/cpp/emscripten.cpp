@@ -1494,18 +1494,23 @@ namespace binding {
             // are present in the vector.
             std::string expression_string = expr[0].as<std::string>();
             std::string parsed_expression_string = expr[1].as<std::string>();
-            tsl::hopscotch_map<std::string, std::string> column_id_map;
+            std::vector<std::pair<std::string, std::string>> column_ids;
 
-            // map of column names to column indices
+            // Read the Javascript map of column IDs to column names, and
+            // convert them into string pairs. This guarantees iteration
+            // order at the cost of constant time access, which we don't
+            // actually use in this case.
             t_val j_column_id_keys = t_val::global("Object").call<t_val>("keys", expr[2]);
-            auto column_ids = vecFromArray<t_val, std::string>(j_column_id_keys);
+            auto column_id_keys = vecFromArray<t_val, std::string>(j_column_id_keys);
+            column_ids.resize(column_id_keys.size());
 
-            for (const std::string& column_id : column_ids) {
-                column_id_map[column_id] = expr[2][column_id].as<std::string>();
+            for (t_uindex cidx = 0; cidx < column_id_keys.size(); ++cidx) {
+                const std::string& column_id = column_id_keys[cidx];
+                column_ids[cidx] = std::pair<std::string, std::string>(column_id, expr[2][column_id].as<std::string>());
             }
 
             t_computed_expression expression = t_compute::precompute(
-                expression_string, parsed_expression_string, column_id_map, schema);
+                expression_string, parsed_expression_string, column_ids, schema);
 
             expressions.push_back(expression);
             schema->add_column(expression_string, expression.m_dtype);

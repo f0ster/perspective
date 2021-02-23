@@ -153,8 +153,8 @@ inline bool string_to_real(Iterator& itr_external, const Iterator end, t_tscalar
 } // end namespace exprtk
 
 // exprtk needs to be imported after the type tags have been declared.
-#define exprtk_disable_rtl_io_file
 // #define exprtk_enable_debugging
+#define exprtk_disable_rtl_io_file
 #include <exprtk.hpp>
 
 namespace exprtk {
@@ -477,141 +477,150 @@ inline bool valid_exponent(const int exponent, numeric::details::t_tscalar_type_
  */
 template <typename Iterator>
 inline bool string_to_real(Iterator& itr_external, const Iterator end, t_tscalar& t, numeric::details::t_tscalar_type_tag) {
-    if (end == itr_external) return false;
+    bool parsed = string_to_real(itr_external, end, t.m_data.m_float64, numeric::details::real_type_tag());
 
-    Iterator itr = itr_external;
-
-    // Start the parser with a float, since we need the widest numeric type
-    // to prevent promotion later on.
-    double d = 0.0;
-
-    const bool negative = ('-' == (*itr));
-
-    if (negative || '+' == (*itr)) {
-        if (end == ++itr) return false;
+    if (parsed) {
+        t.m_type = perspective::DTYPE_FLOAT64;
+        t.m_status = perspective::STATUS_VALID;
     }
 
-    bool instate = false;
+    return parsed;
 
-    static const char_t zero = static_cast<uchar_t>('0');
+    // if (end == itr_external) return false;
 
-    #define parse_digit_1(d)          \
-    if ((digit = (*itr - zero)) < 10) \
-    { d = d * 10 + digit; }     \
-    else                              \
-    { break; }                     \
-    if (end == ++itr) break;          \
+    // Iterator itr = itr_external;
 
-    #define parse_digit_2(d)          \
-    if ((digit = (*itr - zero)) < 10) \
-    { d = d * 10 + digit; }     \
-    else { break; }                   \
-    ++itr;                         \
+    // // Start the parser with a float, since we need the widest numeric type
+    // // to prevent promotion later on.
+    // double d = 0.0;
 
-    if ('.' != (*itr)) {
-        const Iterator curr = itr;
+    // const bool negative = ('-' == (*itr));
 
-        while ((end != itr) && (zero == (*itr))) ++itr;
+    // if (negative || '+' == (*itr)) {
+    //     if (end == ++itr) return false;
+    // }
 
-        while (end != itr) {
-            unsigned int digit;
-            parse_digit_1(d)
-            parse_digit_1(d)
-            parse_digit_2(d)
-        }
+    // bool instate = false;
 
-        if (curr != itr) instate = true;
-    }
+    // static const char_t zero = static_cast<uchar_t>('0');
 
-    int exponent = 0;
+    // #define parse_digit_1(d)          \
+    // if ((digit = (*itr - zero)) < 10) \
+    // { d = d * 10 + digit; }     \
+    // else                              \
+    // { break; }                     \
+    // if (end == ++itr) break;          \
 
-    if (end != itr) {
-        if ('.' == (*itr)) {
-            const Iterator curr = ++itr;
-            double tmp_d = 0.0;
+    // #define parse_digit_2(d)          \
+    // if ((digit = (*itr - zero)) < 10) \
+    // { d = d * 10 + digit; }     \
+    // else { break; }                   \
+    // ++itr;                         \
 
-            while (end != itr) {
-                unsigned int digit;
-                parse_digit_1(tmp_d)
-                parse_digit_1(tmp_d)
-                parse_digit_2(tmp_d)
-            }
+    // if ('.' != (*itr)) {
+    //     const Iterator curr = itr;
 
-            if (curr != itr) {
-                instate = true;
+    //     while ((end != itr) && (zero == (*itr))) ++itr;
 
-                const int frac_exponent = static_cast<int>(-std::distance(curr, itr));
+    //     while (end != itr) {
+    //         unsigned int digit;
+    //         parse_digit_1(d)
+    //         parse_digit_1(d)
+    //         parse_digit_2(d)
+    //     }
 
-                if (!valid_exponent<double>(frac_exponent, numeric::details::t_tscalar_type_tag()))
-                    return false;
+    //     if (curr != itr) instate = true;
+    // }
 
-                d += compute_pow10(tmp_d, frac_exponent);
-            }
+    // int exponent = 0;
 
-            #undef parse_digit_1
-            #undef parse_digit_2
-        }
+    // if (end != itr) {
+    //     if ('.' == (*itr)) {
+    //         const Iterator curr = ++itr;
+    //         double tmp_d = 0.0;
 
-        if (end != itr) {
-            typename std::iterator_traits<Iterator>::value_type c = (*itr);
+    //         while (end != itr) {
+    //             unsigned int digit;
+    //             parse_digit_1(tmp_d)
+    //             parse_digit_1(tmp_d)
+    //             parse_digit_2(tmp_d)
+    //         }
 
-            if (('e' == c) || ('E' == c)) {
-                int exp = 0;
+    //         if (curr != itr) {
+    //             instate = true;
 
-                if (!details::string_to_type_converter_impl_ref(++itr, end, exp)) {
-                    if (end == itr) {
-                        return false;
-                    } else {
-                        c = (*itr);
-                    }
-                }
+    //             const int frac_exponent = static_cast<int>(-std::distance(curr, itr));
 
-                exponent += exp;
-            }
+    //             if (!valid_exponent<double>(frac_exponent, numeric::details::t_tscalar_type_tag()))
+    //                 return false;
 
-            if (end != itr) {
-                if (('f' == c) || ('F' == c) || ('l' == c) || ('L' == c)) {
-                    ++itr;
-                } else if ('#' == c) {
-                    if (end == ++itr) {
-                        return false;
-                    } else if (('I' <= (*itr)) && ((*itr) <= 'n')) {
-                        if (('i' == (*itr)) || ('I' == (*itr))) {
-                            return parse_inf(itr, end, t, negative);
-                        } else if (('n' == (*itr)) || ('N' == (*itr))) {
-                            return parse_nan(itr, end, t);
-                        } else
-                            return false;
-                    } else {
-                        return false;
-                    }
-                } else if (('I' <= (*itr)) && ((*itr) <= 'n')) {
-                    if (('i' == (*itr)) || ('I' == (*itr))) {
-                        return parse_inf(itr, end, t, negative);
-                    } else if (('n' == (*itr)) || ('N' == (*itr))) {
-                        return parse_nan(itr, end, t);
-                    } else {
-                    return false;
-                    }
-                }
-                else
-                    return false;
-            }
-        }
-    }
+    //             d += compute_pow10(tmp_d, frac_exponent);
+    //         }
 
-    if ((end != itr) || (!instate)) {
-        return false;
-    } else if (!valid_exponent<double>(exponent, numeric::details::t_tscalar_type_tag())) {
-        return false;
-    } else if (exponent) {
-        d = compute_pow10(d, exponent);
-    }
+    //         #undef parse_digit_1
+    //         #undef parse_digit_2
+    //     }
 
-    negative ? t.set(-d) :  t.set(d);
-    t.m_type = perspective::DTYPE_FLOAT64;
+    //     if (end != itr) {
+    //         typename std::iterator_traits<Iterator>::value_type c = (*itr);
 
-    return true;
+    //         if (('e' == c) || ('E' == c)) {
+    //             int exp = 0;
+
+    //             if (!details::string_to_type_converter_impl_ref(++itr, end, exp)) {
+    //                 if (end == itr) {
+    //                     return false;
+    //                 } else {
+    //                     c = (*itr);
+    //                 }
+    //             }
+
+    //             exponent += exp;
+    //         }
+
+    //         if (end != itr) {
+    //             if (('f' == c) || ('F' == c) || ('l' == c) || ('L' == c)) {
+    //                 ++itr;
+    //             } else if ('#' == c) {
+    //                 if (end == ++itr) {
+    //                     return false;
+    //                 } else if (('I' <= (*itr)) && ((*itr) <= 'n')) {
+    //                     if (('i' == (*itr)) || ('I' == (*itr))) {
+    //                         return parse_inf(itr, end, t, negative);
+    //                     } else if (('n' == (*itr)) || ('N' == (*itr))) {
+    //                         return parse_nan(itr, end, t);
+    //                     } else
+    //                         return false;
+    //                 } else {
+    //                     return false;
+    //                 }
+    //             } else if (('I' <= (*itr)) && ((*itr) <= 'n')) {
+    //                 if (('i' == (*itr)) || ('I' == (*itr))) {
+    //                     return parse_inf(itr, end, t, negative);
+    //                 } else if (('n' == (*itr)) || ('N' == (*itr))) {
+    //                     return parse_nan(itr, end, t);
+    //                 } else {
+    //                 return false;
+    //                 }
+    //             }
+    //             else
+    //                 return false;
+    //         }
+    //     }
+    // }
+
+    // if ((end != itr) || (!instate)) {
+    //     return false;
+    // } else if (!valid_exponent<double>(exponent, numeric::details::t_tscalar_type_tag())) {
+    //     return false;
+    // } else if (exponent) {
+    //     d = compute_pow10(d, exponent);
+    // }
+
+    // negative ? t.set(-d) :  t.set(d);
+    // t.m_type = perspective::DTYPE_FLOAT64;
+
+    // return true;
 }
 
 } // end namespace details
