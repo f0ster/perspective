@@ -212,18 +212,31 @@ Table::get_computed_schema(
     return computed_schema;
 }
 
-t_dtype
-Table::get_expression_dtype(
-    const std::string& expression_string,
-    const std::string& parsed_expression_string,
-    const std::vector<std::pair<std::string, std::string>>& column_ids) const {
+t_schema
+Table::get_expression_schema(
+    const std::vector<std::tuple<
+            std::string,
+            std::string,
+            std::vector<std::pair<std::string, std::string>>>>& expressions) const {
     const t_schema& schema = get_schema();
-    return t_computed_expression_parser::get_dtype(
-        expression_string,
-        parsed_expression_string,
-        column_ids,
-        schema
-    );
+    t_schema expression_schema;
+    std::cout << "expr size: " << expressions.size() << std::endl;
+
+    for (const auto& expr : expressions) {
+        const std::string& expression = std::get<0>(expr);
+        std::cout << "expr: " << expression << std::endl;
+        t_dtype expression_dtype = t_computed_expression_parser::get_dtype(
+            expression,
+            std::get<1>(expr),
+            std::get<2>(expr),
+            schema);
+
+        if (expression_dtype != DTYPE_NONE) {
+            expression_schema.add_column(expression, expression_dtype);
+        }
+    }
+
+    return expression_schema;
 }
 
 std::shared_ptr<t_gnode>

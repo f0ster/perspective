@@ -239,7 +239,7 @@ export class DomElement extends PerspectiveElement {
         }
     }
 
-    _update_expressions_view(expressions) {
+    _update_expressions_view(expressions, expression_schema) {
         const columns = this._get_view_all_column_names();
         const active = this._get_view_active_column_names();
 
@@ -253,8 +253,6 @@ export class DomElement extends PerspectiveElement {
         let reset_columns_attr = false;
 
         for (const expr of expressions) {
-            console.log(expr);
-
             // If the column already exists or is already in the active DOM,
             // don't add it to the inactive DOM
             const should_add = !columns.includes(expr) && !active.includes(expr);
@@ -263,9 +261,7 @@ export class DomElement extends PerspectiveElement {
                 continue;
             }
 
-            // TODO: needs a way to pre-type check columns, OR update this
-            // column view after the view is created.
-            let type = "float";
+            let type = expression_schema[expr];
 
             const row = this._new_row(expr, type, null, null, null, expr);
             this._inactive_columns.insertBefore(row, this._inactive_columns.childNodes[0] || null);

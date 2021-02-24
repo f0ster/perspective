@@ -278,21 +278,59 @@ class PerspectiveViewer extends ActionElement {
                 this._computed_expression_widget._close_expression_widget();
             }
             if (expressions === null || expressions === undefined || expressions.length === 0) {
-                // Remove computed columns from the DOM, and reset the config
-                // to exclude all computed columns.
+                // Remove expression columns from the DOM, and reset the config
+                // to exclude all expression columns.
                 if (this.hasAttribute("expressions")) {
                     this.removeAttribute("expressions");
                     // TODO: remove expression columns from all uses.
-                    resolve();
                     return;
                 }
-                expressions = [];
+
+                resolve();
             }
 
-            // TODO: move this into `_new_view()` or create a new method that
-            // can access the state of the view itself without breaking the
-            // relative structure and organization of the module.
-            this._update_expressions_view(expressions);
+            let expression_schema = {};
+
+            if (this.table) {
+                expression_schema = await this.table.expression_schema(expressions);
+                const validated_expressions = [];
+
+                /**
+                 * Clear the expressions attribute if the validation fails at
+                 * any point. This validation gets triggered in two scenarios:
+                 *
+                 * 1. When a user types an expression and clicks save,
+                 *  where the expression has already been checked. In
+                 *  this case, there should be no failure of the
+                 *  validation as the expression has already been
+                 *  checked and validated.
+                 *
+                 * 2. When a user calls setAttribute() or restore()
+                 *  with a config that contains expressions, in which case
+                 *  the existing expressions are cleared already, and so
+                 *  there is no need to preserve the array.
+                 */
+                let clear_expressions = false;
+
+                for (const expression of expressions) {
+                    if (expression_schema[expression]) {
+                        validated_expressions.push(expression);
+                    } else {
+                        console.error(`Failed to set "expressions" attribute: expression "${expression}" is invalid.`);
+                        clear_expressions = true;
+                    }
+                }
+
+                if (clear_expressions) {
+                    // recurses one level down but will not make any calls
+                    // to Perspective.
+                    this.setAttribute("expressions", null);
+                }
+
+                expressions = validated_expressions;
+            }
+
+            this._update_expressions_view(expressions, expression_schema);
             this.dispatchEvent(new Event("perspective-config-update"));
             await this._debounce_update();
             resolve();

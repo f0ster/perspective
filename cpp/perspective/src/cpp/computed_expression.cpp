@@ -283,7 +283,6 @@ t_computed_expression_parser::precompute(
     expr_definition.register_symbol_table(t_computed_expression_parser::GLOBAL_SYMTABLE);
     expr_definition.register_symbol_table(sym_table);
 
-    // default unknown symbol resolution will allow for parse.
     if (!t_computed_expression_parser::PARSER->compile(parsed_expression_string, expr_definition)) {
         std::stringstream ss;
         ss << "[t_computed_expression_parser::precompute] Failed to parse expression: `"
@@ -356,7 +355,6 @@ t_computed_expression_parser::get_dtype(
     expr_definition.register_symbol_table(t_computed_expression_parser::GLOBAL_SYMTABLE);
     expr_definition.register_symbol_table(sym_table);
 
-    // default unknown symbol resolution will allow for parse.
     if (!t_computed_expression_parser::PARSER->compile(parsed_expression_string, expr_definition)) {
         std::cerr << "[t_computed_expression_parser::get_dtype] Failed to validate expression: `"
             << parsed_expression_string

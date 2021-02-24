@@ -112,19 +112,6 @@ export class ActionElement extends DomElement {
      */
     _save_computed_expression(event) {
         let expression = event.detail.expression;
-
-        // // `computed-columns` stores the raw expression typed by the user.
-        // let computed_columns = this._get_view_computed_columns();
-
-        // if (computed_columns.includes(expression)) {
-        //     console.warn(`"${expression}" was not applied because it already exists.`);
-        //     return;
-        // }
-
-        // computed_columns.push(expression);
-
-        // this.setAttribute("computed-columns", JSON.stringify(computed_columns));
-
         let expressions = this._get_view_expressions();
 
         if (expressions.includes(expression)) {
@@ -132,14 +119,9 @@ export class ActionElement extends DomElement {
             return;
         }
 
-        if (expression.includes("$''")) {
-            throw new Error("Expression cannot reference empty column $''!");
-        }
-
         expressions.push(expression);
 
-        console.log(expressions);
-
+        // Will be validated in the attribute callback
         this.setAttribute("expressions", JSON.stringify(expressions));
     }
 
