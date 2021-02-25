@@ -343,6 +343,10 @@ t_computed_expression_parser::get_dtype(
 
         t_tscalar rval;
         rval.m_type = schema.get_dtype(column_name);
+
+        // Needs to be valid here, as invalid scalars will return DTYPE_NONE
+        // and all we care about is the dtype and not validity.
+        rval.m_status = STATUS_VALID;
         values[cidx] = rval;
 
         sym_table.add_variable(column_id, values[cidx]);

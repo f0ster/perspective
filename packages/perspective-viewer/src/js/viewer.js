@@ -120,17 +120,17 @@ class PerspectiveViewer extends ActionElement {
         this._update_column_list(
             sort,
             inner,
-            (s, computed_names) => {
+            (s, expressions) => {
                 let dir = "asc";
                 if (Array.isArray(s)) {
                     dir = s[1];
                     s = s[0];
                 }
-                let computed = undefined;
-                if (computed_names.includes(s)) {
-                    computed = s;
+                let expression = undefined;
+                if (expressions.includes(s)) {
+                    expression = s;
                 }
-                return this._new_row(s, false, false, false, dir, computed);
+                return this._new_row(s, false, false, false, dir, expression);
             },
             (sort, node) => {
                 if (Array.isArray(sort)) {
@@ -270,7 +270,7 @@ class PerspectiveViewer extends ActionElement {
     }
 
     @array_attribute
-    "expressions"(expressions) {
+    expressions(expressions) {
         const resolve = this._set_updating();
 
         (async () => {
@@ -282,7 +282,7 @@ class PerspectiveViewer extends ActionElement {
                 // to exclude all expression columns.
                 if (this.hasAttribute("expressions")) {
                     this.removeAttribute("expressions");
-                    // TODO: remove expression columns from all uses.
+                    this._reset_expressions_view();
                     return;
                 }
 
@@ -327,7 +327,28 @@ class PerspectiveViewer extends ActionElement {
                     this.setAttribute("expressions", null);
                 }
 
+                // Need to remove old expressions from the viewer DOM and
+                // config so they don't mess up state. To do this, we need
+                // to get the expression columns that are currently in the DOM,
+                // as this callback runs after the attribute is already set
+                // with the new value.
+                const active_expressions = this._get_view_active_columns()
+                    .filter(x => x.classList.contains("expression"))
+                    .map(x => x.getAttribute("name"));
+                const inactive_expressions = this._get_view_all_columns()
+                    .filter(x => x.classList.contains("expression"))
+                    .map(x => x.getAttribute("name"));
+
+                const old_expressions = active_expressions.concat(inactive_expressions);
+                const to_remove = this._diff_expressions(old_expressions, expressions);
+
+                if (to_remove.length > 0) {
+                    this._reset_expressions_view(to_remove);
+                }
+
                 expressions = validated_expressions;
+            } else {
+                console.warn(`Applying unvalidated expressions: ${expressions} because the viewer does not have a Table attached!`);
             }
 
             this._update_expressions_view(expressions, expression_schema);
@@ -411,17 +432,17 @@ class PerspectiveViewer extends ActionElement {
             this._update_column_list(
                 filters,
                 inner,
-                (filter, computed_names) => {
+                (filter, expressions) => {
                     const fterms = JSON.stringify({
                         operator: filter[1],
                         operand: filter[2]
                     });
                     const name = filter[0];
-                    let computed = undefined;
-                    if (computed_names.includes(name)) {
-                        computed = name;
+                    let expression = undefined;
+                    if (expressions.includes(name)) {
+                        expression = name;
                     }
-                    return this._new_row(name, undefined, undefined, fterms, undefined, computed);
+                    return this._new_row(name, undefined, undefined, fterms, undefined, expression);
                 },
                 (filter, node) =>
                     node.getAttribute("name") === filter[0] &&
@@ -492,12 +513,12 @@ class PerspectiveViewer extends ActionElement {
         }
 
         const inner = this._column_pivots.querySelector("ul");
-        this._update_column_list(pivots, inner, (pivot, computed_names) => {
-            let computed = undefined;
-            if (computed_names.includes(pivot)) {
-                computed = pivot;
+        this._update_column_list(pivots, inner, (pivot, expressions) => {
+            let expression = undefined;
+            if (expressions.includes(pivot)) {
+                expression = pivot;
             }
-            return this._new_row(pivot, undefined, undefined, undefined, undefined, computed);
+            return this._new_row(pivot, undefined, undefined, undefined, undefined, expression);
         });
         this.dispatchEvent(new Event("perspective-config-update"));
         this._debounce_update();
@@ -520,12 +541,12 @@ class PerspectiveViewer extends ActionElement {
         }
 
         const inner = this._row_pivots.querySelector("ul");
-        this._update_column_list(pivots, inner, (pivot, computed_names) => {
-            let computed = undefined;
-            if (computed_names.includes(pivot)) {
-                computed = pivot;
+        this._update_column_list(pivots, inner, (pivot, expressions) => {
+            let expression = undefined;
+            if (expressions.includes(pivot)) {
+                expression = pivot;
             }
-            return this._new_row(pivot, undefined, undefined, undefined, undefined, computed);
+            return this._new_row(pivot, undefined, undefined, undefined, undefined, expression);
         });
         this.dispatchEvent(new Event("perspective-config-update"));
         this._debounce_update();

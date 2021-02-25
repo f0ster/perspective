@@ -220,7 +220,6 @@ Table::get_expression_schema(
             std::vector<std::pair<std::string, std::string>>>>& expressions) const {
     const t_schema& schema = get_schema();
     t_schema expression_schema;
-    std::cout << "expr size: " << expressions.size() << std::endl;
 
     for (const auto& expr : expressions) {
         const std::string& expression = std::get<0>(expr);

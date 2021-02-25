@@ -1282,6 +1282,11 @@ export default function(Module) {
             // if the front-end validates through get_expression_schema
             // then we probably can just take the input as is.
             let parsed_expression_string = expression_string.replace(/\$'(.*?[^\\])'/g, (_, cname) => {
+                // If the column name contains escaped single quotes, remove
+                // them assuming they are escaping a single quote and not the
+                // literal string "\'", in which case...?
+                cname = cname.replace(/\\'/g, "'");
+
                 if (cname_map[cname] === undefined) {
                     let column_id = `COLUMN${running_cidx}`;
                     cname_map[cname] = column_id;
