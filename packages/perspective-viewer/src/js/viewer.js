@@ -24,7 +24,6 @@ import view_style from "../less/viewer.less";
 import default_style from "../less/default.less";
 
 import {ActionElement} from "./viewer/action_element.js";
-import {COMPUTED_EXPRESSION_PARSER} from "./computed_expressions/computed_expression_parser.js";
 
 /**
  * Module for the `<perspective-viewer>` custom element.
@@ -74,7 +73,6 @@ class PerspectiveViewer extends ActionElement {
         this._show_warnings = true;
         this.__render_times = [];
         this._resize_handler = this.notifyResize.bind(this);
-        // this._computed_expression_parser = COMPUTED_EXPRESSION_PARSER;
         this._edit_port = null;
         this._edit_port_lock = invertPromise();
         window.addEventListener("resize", this._resize_handler);
@@ -173,100 +171,18 @@ class PerspectiveViewer extends ActionElement {
         this._debounce_update();
     }
 
-    /* eslint-disable max-len */
-
     /**
      * Sets new computed columns for the viewer.
      *
      * @kind member
      * @type {Array<Object>}
-     * @param {Array<Object>} computed-columns An Array of computed column objects,
-     * which have three properties: `column`, a column name for the new column,
-     * `computed_function_name`, a String representing the computed function to
-     * apply, and `inputs`, an Array of String column names to be used as
-     * inputs to the computation.
-     * @fires PerspectiveViewer#perspective-config-update
-     * @example <caption>via Javascript DOM</caption>
-     * let elem = document.getElementById('my_viewer');
-     * elem.setAttribute('computed-columns', JSON.stringify([{column: "x+y", computed_function_name: "+", inputs: ["x", "y"]}]));
-     * @example <caption>via HTML</caption>
-     * <perspective-viewer computed-columns="[{column:'x+y',computed_function_name:'+',inputs:['x','y']}]""></perspective-viewer>
+     * @param {Array<Object>} computed-columns DEPRECATED - use the
+     * "expressions" API instead.
+     * @deprecated
      */
     @array_attribute
-    "computed-columns"(computed_columns) {
-        const resolve = this._set_updating();
-
-        (async () => {
-            if (this._computed_expression_widget.style.display !== "none") {
-                this._computed_expression_widget._close_expression_widget();
-            }
-            if (computed_columns === null || computed_columns === undefined || computed_columns.length === 0) {
-                // Remove computed columns from the DOM, and reset the config
-                // to exclude all computed columns.
-                if (this.hasAttribute("computed-columns")) {
-                    this.removeAttribute("computed-columns");
-                    const parsed = this._get_view_parsed_computed_columns();
-                    this._reset_computed_column_view(parsed);
-                    this.removeAttribute("parsed-computed-columns");
-                    resolve();
-                    return;
-                }
-                computed_columns = [];
-            }
-
-            let parsed_computed_columns = [];
-
-            // for (const column of computed_columns) {
-            //     if (typeof column === "string") {
-            //         // Either validated through the UI or here. If a `table`
-            //         // has not been loaded when the parsing happens,
-            //         // the column will be skipped.
-            //         if (this._computed_expression_parser.is_initialized) {
-            //             parsed_computed_columns = parsed_computed_columns.concat(this._computed_expression_parser.parse(column));
-            //         }
-            //     } else {
-            //         parsed_computed_columns.push(column);
-            //     }
-            // }
-
-            // Attempt to validate the parsed computed columns against the Table
-            let computed_schema = {};
-
-            if (this._table) {
-                computed_schema = await this._table.computed_schema(parsed_computed_columns);
-                const validated = await this._validate_parsed_computed_columns(parsed_computed_columns, computed_schema);
-                if (validated.length !== parsed_computed_columns.length) {
-                    // Generate a diff error message with the invalid columns
-                    const diff = [];
-                    for (let i = 0; i < parsed_computed_columns.length; i++) {
-                        if (i > validated.length - 1) {
-                            diff.push(parsed_computed_columns[i]);
-                        } else {
-                            if (parsed_computed_columns[i].column !== validated[i].column) {
-                                diff.push(parsed_computed_columns[i]);
-                            }
-                        }
-                    }
-                    console.warn("Could not apply these computed columns:", JSON.stringify(diff));
-                }
-                parsed_computed_columns = validated;
-            }
-
-            // Need to refresh the UI so that previous computed columns used in
-            // pivots, columns, etc. get cleared
-            const old_columns = this._get_view_parsed_computed_columns();
-            const to_remove = this._diff_computed_column_view(old_columns, parsed_computed_columns);
-            this._reset_computed_column_view(to_remove);
-
-            // Always store a copy of the parsed computed columns for
-            // validation of column names, etc.
-            this.setAttribute("parsed-computed-columns", JSON.stringify(parsed_computed_columns));
-
-            this._update_computed_column_view(computed_schema);
-            this.dispatchEvent(new Event("perspective-config-update"));
-            await this._debounce_update();
-            resolve();
-        })();
+    "computed-columns"() {
+        console.error("[PerspectiveViewer] the `computed-columns` attribute is deprecated - use the `expressions` attribute instead.");
     }
 
     @array_attribute
@@ -274,8 +190,8 @@ class PerspectiveViewer extends ActionElement {
         const resolve = this._set_updating();
 
         (async () => {
-            if (this._computed_expression_widget.style.display !== "none") {
-                this._computed_expression_widget._close_expression_widget();
+            if (this._expression_widget.style.display !== "none") {
+                this._expression_widget._close_expression_widget();
             }
             if (expressions === null || expressions === undefined || expressions.length === 0) {
                 // Remove expression columns from the DOM, and reset the config

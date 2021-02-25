@@ -340,6 +340,43 @@ export default function(Module) {
         return schema;
     };
 
+    /**
+     * The expression schema of this {@link module:perspective~view},
+     * which contains only the expressions created on this view.
+     *
+     * A schema is an Object, the keys of which are the columns of this
+     * {@link module:perspective~view}, and the values are their string type
+     * names. If this {@link module:perspective~view} is aggregated, these will
+     * be the aggregated types; otherwise these types will be the same as the
+     * columns in the underlying {@link module:perspective~table}.
+     *
+     * @example
+     * // Create a view with expressions
+     * const view = table.view({
+     *      expressions: ["$'x' + $'y'"]
+     * });
+     *
+     * await view.expression_schema(); // {"$'x' + $'y'": "float"}
+     *
+     * @async
+     *
+     * @returns {Promise<Object>} A Promise of this
+     * {@link module:perspective~view}'s expression schema.
+     */
+    view.prototype.expression_schema = function(override = true) {
+        const schema = extract_map(this._View.expression_schema());
+        if (override) {
+            for (const key of Object.keys(schema)) {
+                let colname = key.split(defaults.COLUMN_SEPARATOR_STRING);
+                colname = colname[colname.length - 1];
+                if (this.overridden_types[colname] && get_type_config(this.overridden_types[colname]).type === schema[key]) {
+                    schema[key] = this.overridden_types[colname];
+                }
+            }
+        }
+        return schema;
+    };
+
     view.prototype._column_names = function(skip = false, depth = 0) {
         return extract_vector_scalar(this._View.column_names(skip, depth)).map(x => x.join(defaults.COLUMN_SEPARATOR_STRING));
     };
@@ -1356,9 +1393,15 @@ export default function(Module) {
     /**
      * Given an array of expressions, return a schema containing the column
      * type for each expression. If the expression is invalid or returns
-     * DTYPE_NONE, the expression will not be present in the returned schema.
+     * the type "none" (indicating the expression could be parsed but resulted
+     * in an invalid output column), the expression will not be present in the
+     * returned schema.
      *
-     * @param {Array<String>} expressions
+     * @param {Array<String>} expressions An array of string expressions to
+     * be validated.
+     *
+     * @returns {Promise<Object>} A Promise that resolves to an expression
+     * schema based on the expressions provided.
      */
     table.prototype.expression_schema = function(expressions, override = true) {
         const expression_schema = {};
