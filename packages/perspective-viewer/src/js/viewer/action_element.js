@@ -99,8 +99,8 @@ export class ActionElement extends DomElement {
      * @param {*} event
      */
     _save_expression(event) {
-        let expression = event.detail.expression;
-        let expressions = this._get_view_expressions();
+        const expression = event.detail.expression;
+        const expressions = this._get_view_expressions();
 
         if (expressions.includes(expression)) {
             console.warn(`"${expression}" was not applied because it already exists.`);
@@ -115,6 +115,12 @@ export class ActionElement extends DomElement {
 
     async _type_check_expression(event) {
         const expression = event.detail.expression;
+        const expressions = this._get_view_expressions();
+
+        if (expressions.includes(expression)) {
+            console.warn(`Cannot apply duplicate expression: "${expression}"`);
+            return;
+        }
 
         if (!expression || expression.length === 0) {
             this._expression_editor.type_check_expression({});
