@@ -40,14 +40,14 @@ utils.with_server({}, () => {
         "superstore.html",
         () => {
             test.capture("click on add column button opens the expression UI.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.$("perspective-viewer");
                 await page.shadow_click("perspective-viewer", "#add-expression");
             });
 
             test.capture("click on close button closes the expression UI.", async page => {
                 const viewer = await page.$("perspective-viewer");
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.$("perspective-viewer");
                 await page.shadow_click("perspective-viewer", "#add-expression");
                 await page.shadow_click("perspective-viewer", "perspective-expression-editor", "#psp-expression-editor-close");
@@ -58,7 +58,7 @@ utils.with_server({}, () => {
             // Functionality - make sure the UI will validate error cases so
             // the engine is not affected.
             test.capture("An expression with unknown symbols should disable the save button", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.$("perspective-viewer");
                 await page.shadow_click("perspective-viewer", "#add-expression");
                 await page.shadow_type("abc", "perspective-viewer", "perspective-expression-editor", ".perspective-expression-editor__edit_area");
@@ -66,7 +66,7 @@ utils.with_server({}, () => {
             });
 
             test.capture("A type-invalid expression should disable the save button", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.$("perspective-viewer");
                 await page.shadow_click("perspective-viewer", "#add-expression");
                 await page.shadow_type("$'Sales' + $'Category'", "perspective-viewer", "perspective-expression-editor", ".perspective-expression-editor__edit_area");
@@ -74,7 +74,7 @@ utils.with_server({}, () => {
             });
 
             test.capture("An expression with invalid input columns should disable the save button", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.$("perspective-viewer");
                 await page.shadow_click("perspective-viewer", "#add-expression");
                 await page.shadow_type("$'aaaa' + $'Sales'", "perspective-viewer", "perspective-expression-editor", ".perspective-expression-editor__edit_area");
@@ -82,7 +82,7 @@ utils.with_server({}, () => {
             });
 
             test.capture("Typing enter should save a valid expression", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.$("perspective-viewer");
                 await page.shadow_click("perspective-viewer", "#add-expression");
                 await page.shadow_type("$'Sales' + 10", "perspective-viewer", "perspective-expression-editor", ".perspective-expression-editor__edit_area");
@@ -92,7 +92,7 @@ utils.with_server({}, () => {
             });
 
             test.capture("Typing enter should not save an invalid expression", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.$("perspective-viewer");
                 await page.shadow_click("perspective-viewer", "#add-expression");
                 await page.shadow_type("definitely not valid", "perspective-viewer", "perspective-expression-editor", ".perspective-expression-editor__edit_area");
@@ -102,7 +102,7 @@ utils.with_server({}, () => {
             });
 
             test.skip("Typing a large expression in the textarea should work even when pushed down to page bottom.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.$("perspective-viewer");
                 await page.shadow_click("perspective-viewer", "#add-expression");
                 await page.shadow_type("1 + 2 + 3 + 4 + 5 + 6 + 7".repeat(10), "perspective-viewer", "perspective-expression-editor", ".perspective-expression-editor__edit_area");
@@ -111,7 +111,7 @@ utils.with_server({}, () => {
             // Remove
             test.capture("Removing expressions should reset active columns, pivots, sort, and filter.", async page => {
                 const viewer = await page.$("perspective-viewer");
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "$'Sales' + 10");
                 await page.waitForSelector("perspective-viewer:not([updating])");
                 await add_expression(page, "$'Profit' / $'Row ID'");
@@ -155,7 +155,7 @@ utils.with_server({}, () => {
             // reset
             test.capture("Resetting the viewer with expressions should place columns in the inactive list.", async page => {
                 const viewer = await page.$("perspective-viewer");
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "$'Sales' + 10");
                 await page.waitForSelector("perspective-viewer:not([updating])");
                 await add_expression(page, "$'Profit' / $'Row ID'");
@@ -168,7 +168,7 @@ utils.with_server({}, () => {
 
             test.capture("Resetting the viewer with columns in active columns should reset columns but not delete columns.", async page => {
                 const viewer = await page.$("perspective-viewer");
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "$'Sales' + 10");
                 await page.waitForSelector("perspective-viewer:not([updating])");
                 await add_expression(page, "$'Profit' / $'Row ID'");
@@ -183,7 +183,7 @@ utils.with_server({}, () => {
 
             test.capture("Resetting the viewer with columns set as pivots should reset pivots but not delete columns.", async page => {
                 const viewer = await page.$("perspective-viewer");
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "$'Sales' + 10");
                 await page.waitForSelector("perspective-viewer:not([updating])");
                 await add_expression(page, "$'Profit' / $'Row ID'");
@@ -199,7 +199,7 @@ utils.with_server({}, () => {
 
             test.capture("Resetting the viewer with columns set as filters should reset filters but not delete columns.", async page => {
                 const viewer = await page.$("perspective-viewer");
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "$'Sales' + 10");
                 await page.waitForSelector("perspective-viewer:not([updating])");
                 await add_expression(page, "$'Profit' / $'Row ID'");
@@ -223,7 +223,7 @@ utils.with_server({}, () => {
 
             test.capture("Resetting the viewer with columns set as sort should reset sort but not delete columns.", async page => {
                 const viewer = await page.$("perspective-viewer");
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "$'Sales' + 10");
                 await page.waitForSelector("perspective-viewer:not([updating])");
                 await add_expression(page, "$'Profit' / $'Row ID'");
@@ -238,7 +238,7 @@ utils.with_server({}, () => {
             // save
             test.capture("saving without an expression should fail as button is disabled.", async page => {
                 const viewer = await page.$("perspective-viewer");
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.shadow_click("perspective-viewer", "#add-expression");
                 await page.evaluate(
                     element =>
@@ -252,20 +252,20 @@ utils.with_server({}, () => {
 
             test.capture("saving a single expression should add it to inactive columns.", async page => {
                 const viewer = await page.$("perspective-viewer");
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "$'Sales' * sqrt($'Profit')");
                 await page.evaluate(element => element.setAttribute("columns", JSON.stringify(["Sales", "Profit"])), viewer);
             });
 
             test.skip("saving a duplicate expression should disable the save button.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "$'Sales' * sqrt($'Profit')");
                 await add_expression(page, "$'Sales' * sqrt($'Profit')");
             });
 
             // Transforms
             test.capture("Expression columns should persist when new views are created.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "$'Sales' + $'Profit'");
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(element => element.setAttribute("row-pivots", '["State", "City"]'), viewer);
@@ -273,7 +273,7 @@ utils.with_server({}, () => {
             });
 
             test.capture("Expression columns should persist when new columns are added.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "$'Sales' + $'Profit'");
                 await add_expression(page, "$'Sales' % $'Profit'");
                 const viewer = await page.$("perspective-viewer");
@@ -282,7 +282,7 @@ utils.with_server({}, () => {
 
             // usage
             test.capture("aggregates by expression column.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "$'Sales' / $'Profit'");
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(element => {
@@ -295,7 +295,7 @@ utils.with_server({}, () => {
             });
 
             test.capture("row pivots by expression column.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "1 + 2");
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(element => element.setAttribute("row-pivots", '["1 + 2"]'), viewer);
@@ -304,7 +304,7 @@ utils.with_server({}, () => {
             });
 
             test.capture("column pivots by expression column.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "1 + 2");
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(element => element.setAttribute("column-pivots", '["1 + 2"]'), viewer);
@@ -314,7 +314,7 @@ utils.with_server({}, () => {
             });
 
             test.capture("row and column pivots by expression column.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "$'Sales' / $'Profit'");
                 await page.waitForSelector("perspective-viewer:not([updating])");
                 await add_expression(page, "1 + 2");
@@ -329,7 +329,7 @@ utils.with_server({}, () => {
             });
 
             test.capture("sorts by expression column.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "$'Sales' / $'Profit'");
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(element => element.setAttribute("sort", JSON.stringify([["$'Sales' / $'Profit'", "desc"]])), viewer);
@@ -338,7 +338,7 @@ utils.with_server({}, () => {
             });
 
             test.capture("filters by expression column.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "$'Sales' + $'Profit'");
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(element => element.setAttribute("filters", JSON.stringify([["$'Sales' + $'Profit'", ">", 100]])), viewer);
@@ -348,19 +348,19 @@ utils.with_server({}, () => {
             });
 
             test.capture("expression column aggregates should persist.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "$'Sales' + $'Profit'");
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(element => element.setAttribute("row-pivots", '["Quantity"]'), viewer);
-                await page.evaluate(element => element.setAttribute("columns", JSON.stringify(["Row ID", "Quantity", "$'Sales' + $'Profit'"])), viewer);
+                await page.evaluate(element => element.setAttribute("columns", JSON.stringify(["$'Sales' + $'Profit'", "Row ID", "Quantity"])), viewer);
                 await page.evaluate(element => element.setAttribute("aggregates", "{\"$'Sales' + $'Profit'\": \"avg\"}"), viewer);
                 await page.evaluate(element => element.setAttribute("columns", JSON.stringify(["Quantity"])), viewer);
-                await page.evaluate(element => element.setAttribute("columns", JSON.stringify(["Row ID", "Quantity", "$'Sales' + $'Profit'"])), viewer);
+                await page.evaluate(element => element.setAttribute("columns", JSON.stringify(["$'Sales' + $'Profit'", "Row ID", "Quantity"])), viewer);
             });
 
             // Attributes
             test.capture("adds expression via attribute", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(element => {
                     element.setAttribute("expressions", JSON.stringify(["$'Sales' + $'Profit'", "if ($'Sales' > 100) true; else false"]));
@@ -371,7 +371,7 @@ utils.with_server({}, () => {
             });
 
             test.capture("setting expression attribute resets old expressions", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(element => {
                     element.setAttribute("expressions", JSON.stringify(["$'Sales' + $'Profit'"]));
@@ -388,7 +388,7 @@ utils.with_server({}, () => {
             });
 
             test.capture("removing expression attribute resets expressions", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(element => {
                     element.setAttribute("expressions", JSON.stringify(["$'Sales' + $'Profit'"]));
@@ -404,7 +404,7 @@ utils.with_server({}, () => {
 
             // Save and restore
             test.capture("expressions are saved without changes", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await add_expression(page, "if ($'Sales' > 100) true; else false");
                 await add_expression(page, "$'Sales' + $'Profit'");
                 const viewer = await page.$("perspective-viewer");
@@ -422,7 +422,7 @@ utils.with_server({}, () => {
             });
 
             test.capture("expressions are restored without changes", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.waitForSelector("perspective-viewer:not([updating])");
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(element => {
@@ -437,7 +437,7 @@ utils.with_server({}, () => {
             });
 
             test.capture("restoring computed-columns is a no-op", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.waitForSelector("perspective-viewer:not([updating])");
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(async element => {
@@ -452,7 +452,7 @@ utils.with_server({}, () => {
             });
 
             test.skip("On restore, expressions in the active columns list are restored correctly.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.waitForSelector("perspective-viewer:not([updating])");
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(async element => {
@@ -466,7 +466,7 @@ utils.with_server({}, () => {
             });
 
             test.skip("On restore, expressions in pivots are restored correctly.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.waitForSelector("perspective-viewer:not([updating])");
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(async element => {
@@ -482,7 +482,7 @@ utils.with_server({}, () => {
             });
 
             test.skip("On restore, expressions in filter are restored correctly.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.waitForSelector("perspective-viewer:not([updating])");
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(async element => {
@@ -497,7 +497,7 @@ utils.with_server({}, () => {
             });
 
             test.skip("On restore, expressions in sort are restored correctly.", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.waitForSelector("perspective-viewer:not([updating])");
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(async element => {
@@ -512,7 +512,7 @@ utils.with_server({}, () => {
             });
 
             test.skip("On restore, user defined aggregates are maintained on expression columns", async page => {
-                await page.shadow_click("perspective-viewer", "#config_button");
+                await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 const viewer = await page.$("perspective-viewer");
                 await page.evaluate(async element => {
                     const config = {
