@@ -230,21 +230,26 @@ async function dataListener(x0, y0, x1, y1) {
 
 export async function createModel(regular, table, view, extend = {}) {
     const config = await view.get_config();
-    const [table_schema, table_computed_schema, num_rows, schema, computed_schema, column_paths] = await Promise.all([
+
+    // Extract just the expression strings from the expressions array, which
+    // contains more metadata than we need.
+    const expressions = config.expressions.map(expr => expr[0]);
+
+    const [table_schema, table_expression_schema, num_rows, schema, expression_schema, column_paths] = await Promise.all([
         table.schema(),
-        table.computed_schema(config.computed_columns),
+        table.expression_schema(expressions),
         view.num_rows(),
         view.schema(),
-        view.computed_schema(),
+        view.expression_schema(),
         view.column_paths()
     ]);
     const model = Object.assign(extend, {
         _view: view,
         _table: table,
-        _table_schema: {...table_schema, ...table_computed_schema},
+        _table_schema: {...table_schema, ...table_expression_schema},
         _config: config,
         _num_rows: num_rows,
-        _schema: {...schema, ...computed_schema},
+        _schema: {...schema, ...expression_schema},
         _ids: [],
         _column_paths: column_paths.filter(path => {
             return path !== "__ROW_PATH__" && path !== "__ID__";

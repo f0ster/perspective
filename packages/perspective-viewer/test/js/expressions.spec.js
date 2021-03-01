@@ -421,18 +421,17 @@ utils.with_server({}, () => {
                 await page.evaluate(element => element.setAttribute("columns", JSON.stringify(["if ($'Sales' > 100) true; else false", "$'Sales' + $'Profit'"])), viewer);
             });
 
-            test.capture("expressions are restored without changes", async page => {
+            test.skip("expressions are restored without changes", async page => {
                 await page.evaluate(async () => await document.querySelector("perspective-viewer").toggleConfig());
                 await page.waitForSelector("perspective-viewer:not([updating])");
                 const viewer = await page.$("perspective-viewer");
+                await page.waitForSelector("perspective-viewer:not([updating])");
                 await page.evaluate(element => {
-                    const config = {
+                    return element.restore({
                         columns: ["Order Date", "Ship Date"],
                         expressions: ["if ($'Sales' > 100) true; else false", "$'Sales' + $'Profit'"]
-                    };
-                    return element.restore(config);
+                    });
                 }, viewer);
-                await page.waitFor(5000);
                 await page.waitForSelector("perspective-viewer:not([updating])");
             });
 
