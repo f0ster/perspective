@@ -65,6 +65,9 @@ struct col : public exprtk::igeneric_function<T> {
     std::map<std::string, t_uindex> m_ridxs;
 };
 
+// TODO: give the function a pointer to the output column and just have
+// it write to the output column and return a t_tscalar with a sentinel
+// value so the `set_nth` knows to not actually overwrite it.
 template <typename T>
 struct upper : public exprtk::igeneric_function<T> {
     typedef typename exprtk::igeneric_function<T>::parameter_list_t t_parameter_list;
@@ -77,6 +80,40 @@ struct upper : public exprtk::igeneric_function<T> {
 
     T operator()(t_parameter_list parameters);
 };
+
+enum t_dbkt_unit {
+    SECONDS,
+    MINUTES,
+    HOURS,
+    DAYS,
+    WEEKS,
+    MONTHS,
+    YEARS
+};
+
+template <typename T>
+struct dbkt : public exprtk::igeneric_function<T> {
+    typedef typename exprtk::igeneric_function<T>::parameter_list_t t_parameter_list;
+    typedef typename exprtk::igeneric_function<T>::generic_type t_generic_type;
+    typedef typename t_generic_type::scalar_view t_scalar_view;
+    typedef typename t_generic_type::string_view t_string_view;
+
+    dbkt();
+    ~dbkt();
+
+    T operator()(t_parameter_list parameters);
+
+    // faster unit lookups, since we are calling this lookup in a tight loop.
+    static tsl::hopscotch_map<std::string, t_dbkt_unit> DBKT_UNIT_MAP;
+};
+
+void _second_bucket(t_tscalar& val, t_tscalar& rval);
+void _minute_bucket(t_tscalar& val, t_tscalar& rval);
+void _hour_bucket(t_tscalar& val, t_tscalar& rval);
+void _day_bucket(t_tscalar& val, t_tscalar& rval);
+void _week_bucket(t_tscalar& val, t_tscalar& rval);
+void _month_bucket(t_tscalar& val, t_tscalar& rval);
+void _year_bucket(t_tscalar& val, t_tscalar& rval);
 
 /**
  * @brief Generate headers for numeric computations with one operand.

@@ -16,6 +16,9 @@ t_computed_expression_parser::PARSER = std::make_shared<exprtk::parser<t_tscalar
 exprtk::symbol_table<t_tscalar>
 t_computed_expression_parser::GLOBAL_SYMTABLE = exprtk::symbol_table<t_tscalar>();
 
+std::vector<exprtk::igeneric_function<t_tscalar>>
+t_computed_expression_parser::FUNCTIONS = {};
+
 t_computed_expression::t_computed_expression(
         const std::string& expression_string,
         const std::string& parsed_expression_string,
@@ -30,6 +33,9 @@ void
 t_computed_expression::compute(
     std::shared_ptr<t_data_table> data_table) const {
     exprtk::symbol_table<t_tscalar> sym_table;
+
+    computed_function::dbkt<t_tscalar> dbkt_fn = computed_function::dbkt<t_tscalar>();
+    sym_table.add_function("dbkt", dbkt_fn);
 
     exprtk::expression<t_tscalar> expr_definition;
     std::vector<std::pair<std::string, t_tscalar>> values;
@@ -89,6 +95,9 @@ t_computed_expression::recompute(
     std::shared_ptr<t_data_table> flattened,
     const std::vector<t_rlookup>& changed_rows) const {
     exprtk::symbol_table<t_tscalar> sym_table;
+
+    computed_function::dbkt<t_tscalar> dbkt_fn = computed_function::dbkt<t_tscalar>();
+    sym_table.add_function("dbkt", dbkt_fn);
 
     exprtk::expression<t_tscalar> expr_definition;
     std::vector<std::pair<std::string, t_tscalar>> values;
@@ -190,8 +199,6 @@ t_computed_expression::recompute(
                     (row_already_exists && flattened_columns[column_id]->is_cleared(idx)) ||
                     (!row_already_exists && !flattened_columns[column_id]->is_valid(idx));
 
-                // std::cout << "should_unset: " << should_unset << std::endl;
-
                 /**
                  * Use `unset` instead of `clear`, as
                  * `t_gstate::update_master_table` will reconcile `STATUS_CLEAR`
@@ -240,6 +247,9 @@ t_computed_expression::get_dtype() const {
 void
 t_computed_expression_parser::init() {
     t_computed_expression_parser::GLOBAL_SYMTABLE.add_constants();
+    // computed_function::dbkt<t_tscalar> dbkt_fn = computed_function::dbkt<t_tscalar>();
+    // t_computed_expression_parser::FUNCTIONS.push_back(dbkt_fn);
+    // t_computed_expression_parser::GLOBAL_SYMTABLE.add_function("dbkt", t_computed_expression_parser::FUNCTIONS[0]);
 }
 
 t_computed_expression
@@ -250,6 +260,10 @@ t_computed_expression_parser::precompute(
     std::shared_ptr<t_schema> schema
 ) {
     exprtk::symbol_table<t_tscalar> sym_table;
+
+    computed_function::dbkt<t_tscalar> dbkt_fn = computed_function::dbkt<t_tscalar>();
+    sym_table.add_function("dbkt", dbkt_fn);
+
     exprtk::expression<t_tscalar> expr_definition;
 
     // We aren't accessing values over multiple iterations, so we don't need
@@ -308,6 +322,9 @@ t_computed_expression_parser::get_dtype(
     exprtk::symbol_table<t_tscalar> sym_table;
     exprtk::expression<t_tscalar> expr_definition;
 
+    computed_function::dbkt<t_tscalar> dbkt_fn = computed_function::dbkt<t_tscalar>();
+    sym_table.add_function("dbkt", dbkt_fn);
+
     // We aren't accessing values over multiple iterations, so we don't need
     // to track the column name.
     std::vector<t_tscalar> values;
@@ -350,6 +367,11 @@ t_computed_expression_parser::get_dtype(
     expr_definition.register_symbol_table(sym_table);
 
     if (!t_computed_expression_parser::PARSER->compile(parsed_expression_string, expr_definition)) {
+        // std::cerr << "[t_computed_expression_parser::get_dtype] Failed to parse expression: `"
+        //     << parsed_expression_string
+        //     << "`, failed with error: "
+        //     << t_computed_expression_parser::PARSER->error().c_str()
+        //     << std::endl;
         return DTYPE_NONE;
     }
 

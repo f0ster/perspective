@@ -97,7 +97,7 @@ upper<T>::~upper() {}
 
 template <>
 t_tscalar upper<t_tscalar>::operator()(t_parameter_list parameters) {
-     auto num_params = parameters.size();
+    auto num_params = parameters.size();
 
     if (num_params == 0) {
         std::stringstream ss;
@@ -115,6 +115,306 @@ t_tscalar upper<t_tscalar>::operator()(t_parameter_list parameters) {
     std::cout << "upper saved: " << rval.repr() << std::endl;
     return rval;
 }
+
+template <typename T>
+tsl::hopscotch_map<std::string, t_dbkt_unit>
+dbkt<T>::DBKT_UNIT_MAP = {
+    {"s", t_dbkt_unit::SECONDS},
+    {"m", t_dbkt_unit::MINUTES},
+    {"h", t_dbkt_unit::HOURS},
+    {"D", t_dbkt_unit::DAYS},
+    {"W", t_dbkt_unit::WEEKS},
+    {"M", t_dbkt_unit::MONTHS},
+    {"Y", t_dbkt_unit::YEARS}
+};
+
+template <typename T>
+dbkt<T>::dbkt()
+    : exprtk::igeneric_function<T>("TS") {
+}
+
+template <typename T>
+dbkt<T>::~dbkt() {}
+
+template <>
+t_tscalar dbkt<t_tscalar>::operator()(t_parameter_list parameters) {
+    t_tscalar val;
+    t_dbkt_unit unit;
+
+    for (auto i = 0; i < parameters.size(); ++i) {
+        t_generic_type& gt = parameters[i];
+
+        if (t_generic_type::e_scalar == gt.type) {
+            t_scalar_view temp(gt);
+
+            // copies value, type, validity
+            val.set(temp());
+        } else if (t_generic_type::e_string == gt.type) {
+            t_string_view temp_string(gt);
+            
+            // copies string out
+            std::string unit_str = std::string(temp_string.begin(), temp_string.end());
+
+            if (dbkt::DBKT_UNIT_MAP.count(unit_str) == 0) {
+                std::cerr << "[dbkt] Invalid unit in dbkt(): " << unit << std::endl;
+                return mknone();
+            }
+
+            unit = dbkt::DBKT_UNIT_MAP[unit_str];
+        } else {
+            std::cerr << "[dbkt] Invalid parameter in dbkt(): " << unit << std::endl;
+            return mknone();
+        }
+    }
+
+    t_tscalar rval;
+    
+    switch (unit) {
+        case t_dbkt_unit::SECONDS: {
+            _second_bucket(val, rval);
+        } break;
+        case t_dbkt_unit::MINUTES: {
+            _minute_bucket(val, rval);
+        } break;
+        case t_dbkt_unit::HOURS: {
+            _hour_bucket(val, rval);
+        } break;
+        case t_dbkt_unit::DAYS: {
+            _day_bucket(val, rval);
+        } break;
+        case t_dbkt_unit::WEEKS: {
+            _week_bucket(val, rval);
+        } break;
+        case t_dbkt_unit::MONTHS: {
+            _month_bucket(val, rval);
+        } break;
+        case t_dbkt_unit::YEARS: {
+            _year_bucket(val, rval);
+        } break;
+        default: {
+            // shouldn't trigger this block - unit has already been validated
+            return mknone();
+        } break;
+    }
+
+    return rval;
+}
+
+void _second_bucket(t_tscalar& val, t_tscalar& rval) {
+    if (val.is_none() || !val.is_valid()) rval.set(t_none());
+
+    switch (val.get_dtype()) {
+        case DTYPE_TIME: {
+            auto int_ts = val.to_int64();
+            std::int64_t bucketed_ts = floor(static_cast<double>(int_ts) / 1000) * 1000;
+            rval.set(t_time(bucketed_ts));
+        } break;
+        default: break;
+    }
+}
+
+void _minute_bucket(t_tscalar& val, t_tscalar& rval) {
+    if (val.is_none() || !val.is_valid()) rval.set(t_none());
+
+    switch (val.get_dtype()) {
+        case DTYPE_TIME: {
+            // Convert the int64 to a milliseconds duration timestamp
+            std::chrono::milliseconds ms_timestamp(val.to_int64());
+
+            // Convert milliseconds to minutes
+            std::chrono::minutes m_timestamp = std::chrono::duration_cast<std::chrono::minutes>(ms_timestamp);
+
+            // Set a new `t_time` and return it.
+            rval.set(
+                t_time(std::chrono::duration_cast<std::chrono::milliseconds>(m_timestamp).count()));
+        } break;
+        default: break;
+    }
+}
+
+void _hour_bucket(t_tscalar& val, t_tscalar& rval) {
+    if (val.is_none() || !val.is_valid()) rval.set(t_none());
+
+    switch (val.get_dtype()) {
+        case DTYPE_TIME: {
+            // Convert the int64 to a millisecond duration timestamp
+            std::chrono::milliseconds ms_timestamp(val.to_int64());
+
+            // Convert the milliseconds to hours
+            std::chrono::hours hr_timestamp = std::chrono::duration_cast<std::chrono::hours>(ms_timestamp);
+
+            // Set a new `t_time` and return it.
+            rval.set(
+                t_time(std::chrono::duration_cast<std::chrono::milliseconds>(hr_timestamp).count()));
+        } break;
+        default: break;
+    }
+}
+
+void _day_bucket(t_tscalar& val, t_tscalar& rval) {
+    if (val.is_none() || !val.is_valid()) rval.set(t_none());
+
+    switch (val.get_dtype()) {
+        case DTYPE_TIME: {
+            // Convert the int64 to a milliseconds duration timestamp
+            std::chrono::milliseconds ms_timestamp(val.to_int64());
+
+            // Convert the timestamp to a `sys_time` (alias for `time_point`)
+            date::sys_time<std::chrono::milliseconds> ts(ms_timestamp);
+
+            // Use localtime so that the day of week is consistent with all output
+            // datetimes, which are in local time
+            std::time_t temp = std::chrono::system_clock::to_time_t(ts);
+
+            // Convert to a std::tm
+            std::tm* t = std::localtime(&temp);
+
+            // Get the year and create a new `t_date`
+            std::int32_t year = static_cast<std::int32_t>(t->tm_year + 1900);
+
+            // Month in `t_date` is [0-11]
+            std::int32_t month = static_cast<std::uint32_t>(t->tm_mon);
+            std::uint32_t day = static_cast<std::uint32_t>(t->tm_mday);
+
+            rval.set(t_date(year, month, day));
+        } break;
+        default: break;
+    }
+}
+
+void _week_bucket(t_tscalar& val, t_tscalar& rval) {
+    if (val.is_none() || !val.is_valid()) rval.set(t_none());
+
+    switch (val.get_dtype()) {
+        case DTYPE_DATE: {
+            // Retrieve the `t_date` struct from the scalar
+            t_date date_val = val.get<t_date>();
+
+            // Construct a `date::year_month_day` value
+            date::year year {date_val.year()};
+
+            // date::month is [1-12], whereas `t_date.month()` is [0-11]
+            date::month month {static_cast<std::uint32_t>(date_val.month()) + 1};
+            date::day day {static_cast<std::uint32_t>(date_val.day())};
+            date::year_month_day ymd(year, month, day);
+
+            // Convert to a `sys_days` representing no. of days since epoch
+            date::sys_days days_since_epoch = ymd;
+
+            // Subtract Sunday from the ymd to get the beginning of the last day
+            ymd = days_since_epoch - (date::weekday{days_since_epoch} - date::Monday);
+
+            // Get the day of month and day of the week
+            std::int32_t year_int = static_cast<std::int32_t>(ymd.year());
+
+            // date::month is [1-12], whereas `t_date.month()` is [0-11]
+            std::uint32_t month_int = static_cast<std::uint32_t>(ymd.month()) - 1;
+            std::uint32_t day_int = static_cast<std::uint32_t>(ymd.day());
+
+            // Return the new `t_date`
+            t_date new_date = t_date(year_int, month_int, day_int);
+            rval.set(new_date);
+        } break;
+        case DTYPE_TIME: {
+            // Convert the int64 to a milliseconds duration timestamp
+            std::chrono::milliseconds timestamp(val.to_int64());
+
+            // Convert the timestamp to a `sys_time` (alias for `time_point`)
+            date::sys_time<std::chrono::milliseconds> ts(timestamp);
+
+            // Convert the timestamp to local time
+            std::time_t temp = std::chrono::system_clock::to_time_t(ts);
+            std::tm* t = std::localtime(&temp);
+
+            // Take the ymd from the `tm`, now in local time, and create a
+            // date::year_month_day.
+            date::year year {1900 + t->tm_year};
+
+            // date::month is [1-12], whereas `std::tm::tm_mon` is [0-11]
+            date::month month {static_cast<std::uint32_t>(t->tm_mon) + 1};
+            date::day day {static_cast<std::uint32_t>(t->tm_mday)};
+            date::year_month_day ymd(year, month, day);
+
+            // Convert to a `sys_days` representing no. of days since epoch
+            date::sys_days days_since_epoch = ymd;
+
+            // Subtract Sunday from the ymd to get the beginning of the last day
+            ymd = days_since_epoch - (date::weekday{days_since_epoch} - date::Monday);
+
+            // Get the day of month and day of the week
+            std::int32_t year_int = static_cast<std::int32_t>(ymd.year());
+
+            // date::month is [1-12], whereas `t_date.month()` is [0-11]
+            std::uint32_t month_int = static_cast<std::uint32_t>(ymd.month()) - 1;
+            std::uint32_t day_int = static_cast<std::uint32_t>(ymd.day());
+
+            // Return the new `t_date`
+            t_date new_date = t_date(year_int, month_int, day_int);
+            rval.set(new_date);
+        } break;
+        default: break;
+    }
+}
+
+void _month_bucket(t_tscalar& val, t_tscalar& rval) {
+    if (val.is_none() || !val.is_valid()) rval.set(t_none());
+
+    switch (val.get_dtype()) {
+        case DTYPE_DATE: {
+            t_date date_val = val.get<t_date>();
+            rval.set(t_date(date_val.year(), date_val.month(), 1));
+        } break;
+        case DTYPE_TIME: {
+            // Convert the int64 to a milliseconds duration timestamp
+            std::chrono::milliseconds ms_timestamp(val.to_int64());
+
+            // Convert the timestamp to a `sys_time` (alias for `time_point`)
+            date::sys_time<std::chrono::milliseconds> ts(ms_timestamp);
+
+            // Convert the timestamp to local time
+            std::time_t temp = std::chrono::system_clock::to_time_t(ts);
+            std::tm* t = std::localtime(&temp);
+
+            // Use the `tm` to create the `t_date`
+            std::int32_t year = static_cast<std::int32_t>(t->tm_year + 1900);
+            std::int32_t month = static_cast<std::uint32_t>(t->tm_mon);
+            rval.set(t_date(year, month, 1));
+        } break;
+        default: break;
+    }
+}
+
+void _year_bucket(t_tscalar& val, t_tscalar& rval) {
+    if (val.is_none() || !val.is_valid()) rval.set(t_none());
+
+    switch (val.get_dtype()) {
+        case DTYPE_DATE: {
+            t_date date_val = val.get<t_date>();
+            rval.set(t_date(date_val.year(), 0, 1));
+        } break;
+        case DTYPE_TIME: {
+            // Convert the int64 to a milliseconds duration timestamp
+            std::chrono::milliseconds ms_timestamp(val.to_int64());
+
+            // Convert the timestamp to a `sys_time` (alias for `time_point`)
+            date::sys_time<std::chrono::milliseconds> ts(ms_timestamp);
+
+            // Convert the timestamp to local time
+            std::time_t temp = std::chrono::system_clock::to_time_t(ts);
+            std::tm* t = std::localtime(&temp);
+
+            // Use the `tm` to create the `t_date`
+            std::int32_t year = static_cast<std::int32_t>(t->tm_year + 1900);
+            rval.set(t_date(year, 0, 1));
+        } break;
+        default: break;
+    }
+}
+
+// Explicitly instantiate all exprtk function templates.
+template struct col<t_tscalar>;
+template struct upper<t_tscalar>;
+template struct dbkt<t_tscalar>;
 
 /**
  * @brief Generate all type permutations for a numeric function that takes one
@@ -985,10 +1285,6 @@ void month_of_year<DTYPE_TIME>(
     // Get the month string and write into the output column
     output_column->set_nth(idx, months_of_year[month]);
 }
-
-// Explicitly instantiate all exprtk functions
-template struct col<t_tscalar>;
-template struct upper<t_tscalar>;
 
 } // end namespace computed_function
 } // end namespace perspective
