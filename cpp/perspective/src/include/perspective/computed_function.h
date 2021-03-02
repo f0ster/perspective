@@ -72,13 +72,17 @@ template <typename T>
 struct upper : public exprtk::igeneric_function<T> {
     typedef typename exprtk::igeneric_function<T>::parameter_list_t t_parameter_list;
     typedef typename exprtk::igeneric_function<T>::generic_type t_generic_type;
+    typedef typename t_generic_type::scalar_view t_scalar_view;
     typedef typename t_generic_type::string_view t_string_view;
 
     upper();
-
     ~upper();
 
     T operator()(t_parameter_list parameters);
+
+    std::shared_ptr<t_column> m_output_column;
+    t_uindex m_ridx;
+    t_tscalar m_sentinel;
 };
 
 enum t_dbkt_unit {

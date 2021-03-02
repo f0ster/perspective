@@ -90,30 +90,55 @@ T col<T>::operator()(t_parameter_list parameters) {
 }
 
 template <typename T>
-upper<T>::upper() {}
+upper<T>::upper()
+    : exprtk::igeneric_function<T>("?")
+    , m_output_column(nullptr)
+    , m_ridx(0) {
+        t_tscalar sentinel;
+        sentinel.set("_PSP_SENTINEL_");
+        m_sentinel = sentinel;
+    }
 
 template <typename T>
 upper<T>::~upper() {}
 
 template <>
 t_tscalar upper<t_tscalar>::operator()(t_parameter_list parameters) {
-    auto num_params = parameters.size();
+    std::string temp_str;
 
-    if (num_params == 0) {
-        std::stringstream ss;
-        ss << "Expression error: col() function cannot be empty." << std::endl;
-        std::cout << ss.str();
-        PSP_COMPLAIN_AND_ABORT(ss.str());
+    if (parameters.size() != 1) {
+        return mknone();
     }
 
-    t_string_view param = t_string_view(parameters[0]);
-    std::string s(param.begin(), param.size());
-    std::cout << "upper " << s << std::endl;
-    t_tscalar rval;
-    boost::to_upper(s);
-    rval.set(s.c_str());
-    std::cout << "upper saved: " << rval.repr() << std::endl;
-    return rval;
+    t_generic_type& gt = parameters[0];
+
+    if (t_generic_type::e_scalar == gt.type) {
+        t_scalar_view temp(gt);
+        t_tscalar temp_scalar = temp();
+
+        if (temp_scalar.get_dtype() != DTYPE_STR || !temp_scalar.is_valid() || temp_scalar.is_none()) {
+            return mknone();
+        }
+
+        temp_str = temp_scalar.to_string();
+    } else if (t_generic_type::e_string == gt.type) {
+        t_string_view temp_string(gt);
+        temp_str = std::string(temp_string.begin(), temp_string.end());
+    } else {
+        return mknone();
+    }
+
+    if (m_output_column == nullptr) {
+        return m_sentinel;
+    }
+
+    boost::to_upper(temp_str);
+
+    // automatically interns in the output column
+    m_output_column->set_nth(m_ridx, temp_str);
+    m_ridx++;
+
+    return m_sentinel;
 }
 
 template <typename T>
@@ -151,8 +176,6 @@ t_tscalar dbkt<t_tscalar>::operator()(t_parameter_list parameters) {
             val.set(temp());
         } else if (t_generic_type::e_string == gt.type) {
             t_string_view temp_string(gt);
-            
-            // copies string out
             std::string unit_str = std::string(temp_string.begin(), temp_string.end());
 
             if (dbkt::DBKT_UNIT_MAP.count(unit_str) == 0) {
@@ -162,7 +185,7 @@ t_tscalar dbkt<t_tscalar>::operator()(t_parameter_list parameters) {
 
             unit = dbkt::DBKT_UNIT_MAP[unit_str];
         } else {
-            std::cerr << "[dbkt] Invalid parameter in dbkt(): " << unit << std::endl;
+            std::cerr << "[dbkt] Invalid parameter in dbkt()" << std::endl;
             return mknone();
         }
     }
