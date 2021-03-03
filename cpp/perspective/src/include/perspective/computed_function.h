@@ -25,6 +25,22 @@
 namespace perspective {
 
 /**
+ * @brief Struct for static members that computed functions depend on, such as
+ * the vocab to store intermediate strings.
+ */
+struct t_computed_function {
+
+    /**
+     * @brief Initialize the vocab.
+     * 
+     */
+    static void init();
+
+    static std::shared_ptr<t_vocab> EXPRESSION_VOCAB;
+};
+    
+
+/**
  * @brief The `computed_function` namespace contains all functions that will be
  * used to generate values for a computed column.
  * 
@@ -34,7 +50,7 @@ namespace perspective {
  * 
  */
 namespace computed_function {
-    
+
 /**
  * @brief A custom exprtk function that reaches into a column and returns the
  * value of the next row. Basically like an iterator but slow and bad, and this
@@ -65,9 +81,6 @@ struct col : public exprtk::igeneric_function<T> {
     std::map<std::string, t_uindex> m_ridxs;
 };
 
-// TODO: give the function a pointer to the output column and just have
-// it write to the output column and return a t_tscalar with a sentinel
-// value so the `set_nth` knows to not actually overwrite it.
 template <typename T>
 struct upper : public exprtk::igeneric_function<T> {
     typedef typename exprtk::igeneric_function<T>::parameter_list_t t_parameter_list;
@@ -80,9 +93,26 @@ struct upper : public exprtk::igeneric_function<T> {
 
     T operator()(t_parameter_list parameters);
 
-    std::shared_ptr<t_column> m_output_column;
-    t_uindex m_ridx;
     t_tscalar m_sentinel;
+    t_tscalar m_rval;
+    t_tscalar m_none;
+};
+
+template <typename T>
+struct lower : public exprtk::igeneric_function<T> {
+    typedef typename exprtk::igeneric_function<T>::parameter_list_t t_parameter_list;
+    typedef typename exprtk::igeneric_function<T>::generic_type t_generic_type;
+    typedef typename t_generic_type::scalar_view t_scalar_view;
+    typedef typename t_generic_type::string_view t_string_view;
+
+    lower();
+    ~lower();
+
+    T operator()(t_parameter_list parameters);
+
+    t_tscalar m_sentinel;
+    t_tscalar m_rval;
+    t_tscalar m_none;
 };
 
 enum t_dbkt_unit {
@@ -118,6 +148,9 @@ void _day_bucket(t_tscalar& val, t_tscalar& rval);
 void _week_bucket(t_tscalar& val, t_tscalar& rval);
 void _month_bucket(t_tscalar& val, t_tscalar& rval);
 void _year_bucket(t_tscalar& val, t_tscalar& rval);
+
+t_tscalar now();
+t_tscalar today();
 
 /**
  * @brief Generate headers for numeric computations with one operand.

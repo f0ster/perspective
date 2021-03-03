@@ -44,7 +44,8 @@ public:
      * 
      * @param data_table 
      */
-    void compute(std::shared_ptr<t_data_table> data_table) const;
+    void compute(
+        std::shared_ptr<t_data_table> data_table, std::shared_ptr<t_vocab> vocab) const;
 
     /**
      * @brief Compute this expression for the rows in `changed_rows`, and
@@ -53,7 +54,8 @@ public:
     void recompute(
         std::shared_ptr<t_data_table> gstate_table,
         std::shared_ptr<t_data_table> flattened,
-        const std::vector<t_rlookup>& changed_rows) const;
+        const std::vector<t_rlookup>& changed_rows,
+        std::shared_ptr<t_vocab> vocab) const;
 
     std::string get_expression_string() const;
     std::string get_parsed_expression_string() const;

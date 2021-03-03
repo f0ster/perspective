@@ -1829,6 +1829,7 @@ int
 main(int argc, char** argv) {
 // seed the computations vector
 t_computed_column::make_computations();
+t_computed_function::init();
 t_computed_expression_parser::init();
 
 // clang-format off

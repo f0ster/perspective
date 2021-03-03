@@ -10,6 +10,22 @@
 #include <perspective/computed_function.h>
 
 namespace perspective {
+std::shared_ptr<t_vocab> t_computed_function::EXPRESSION_VOCAB = nullptr;
+
+void t_computed_function::init() {
+    t_lstore_recipe vlendata_args(
+        "", "__EXPRESSION_VOCAB_VLENDATA__", DEFAULT_EMPTY_CAPACITY, BACKING_STORE_MEMORY);
+
+    t_lstore_recipe extents_args(
+        "", "__EXPRESSION_VOCAB_VLENDATA__", DEFAULT_EMPTY_CAPACITY, BACKING_STORE_MEMORY);
+
+    t_computed_function::EXPRESSION_VOCAB.reset(new t_vocab(vlendata_args, extents_args));
+    t_computed_function::EXPRESSION_VOCAB->init(true);
+
+    // Block off the vocabulary at index 0 since we use it as a sentinel value
+    t_computed_function::EXPRESSION_VOCAB->get_interned("__PSP_SENTINEL__");
+}
+
 namespace computed_function {
 
 using int8 = std::int8_t;
@@ -48,7 +64,7 @@ col<T>::~col() {}
 template <typename T>
 T col<T>::next(
     const std::string& column_name) {
-    std::cout << "NOT IMPLEMENTED" << std::endl;
+    // std::cout << "NOT IMPLEMENTED" << std::endl;
     std::string error = "next<T>() Not implemented!\n";
     PSP_COMPLAIN_AND_ABORT(error);
 }
@@ -69,7 +85,7 @@ T col<T>::operator()(t_parameter_list parameters) {
     if (num_params == 0) {
         std::stringstream ss;
         ss << "Expression error: col() function cannot be empty." << std::endl;
-        std::cout << ss.str();
+        // std::cout << ss.str();
         PSP_COMPLAIN_AND_ABORT(ss.str());
     }
 
@@ -91,12 +107,29 @@ T col<T>::operator()(t_parameter_list parameters) {
 
 template <typename T>
 upper<T>::upper()
-    : exprtk::igeneric_function<T>("?")
-    , m_output_column(nullptr)
-    , m_ridx(0) {
+    : exprtk::igeneric_function<T>("?") {
         t_tscalar sentinel;
-        sentinel.set("_PSP_SENTINEL_");
+        t_tscalar rval;
+
+        // The sentinel is a string scalar that is returned to indicate a
+        // valid call to the function without actually computing any values.
+        sentinel.m_type = DTYPE_STR;
+        sentinel.m_status = STATUS_VALID;
+        sentinel.m_data.m_uint64 = 0;
+
+        // The rval is the scalar that is returned out from each call to the
+        // function. Because strings are interned in a vocabulary, the only
+        // thing that is returned is a uint64 value that contains the index
+        // into the expression vocab.
+        rval.m_type = DTYPE_STR;
+        rval.m_status = STATUS_VALID;
+
         m_sentinel = sentinel;
+        m_rval = rval;
+
+        // m_none is a scalar with DTYPE_NONE that indicates an invalid
+        // call to the function.
+        m_none = mknone();
     }
 
 template <typename T>
@@ -104,6 +137,104 @@ upper<T>::~upper() {}
 
 template <>
 t_tscalar upper<t_tscalar>::operator()(t_parameter_list parameters) {
+    std::string temp_str;
+
+    if (parameters.size() != 1) {
+        return m_none;
+    }
+
+    t_generic_type& gt = parameters[0];
+
+    if (t_generic_type::e_scalar == gt.type) {
+        t_scalar_view temp(gt);
+        t_tscalar temp_scalar = temp();
+
+        if (temp_scalar.get_dtype() != DTYPE_STR || !temp_scalar.is_valid() || temp_scalar.is_none()) {
+            return m_none;
+        }
+
+        // If the scalar argument has a value in the uint64 field that is less
+        // than the number of items in the vocab and greater than 0, then it
+        // is a valid string scalar output by a previous call to this function.
+        //
+        // This check works because there is either exactly `num_rows` values
+        // in the vocab (for a column whose values are all unique across every
+        // row), or there are less than `num_rows` values (for a column with
+        // duplicate strings) as reading into an uninitialized
+        // uint64 field is undefined behavior (but during testing, consistently
+        // returns an extremely large int).
+        if (temp_scalar.m_data.m_uint64 > 0
+            && temp_scalar.m_data.m_uint64 < t_computed_function::EXPRESSION_VOCAB->get_vlenidx()) {
+            temp_str = std::string(t_computed_function::EXPRESSION_VOCAB->unintern_c(temp_scalar.m_data.m_uint64));
+        } else if (temp_scalar.m_data.m_charptr != nullptr) {
+            // If there are no values in the uint64/it is uninitialized, but
+            // the scalar has a charptr value then read the string out from
+            // the scalar itself.
+            temp_str = temp_scalar.to_string();
+        } else {
+            return m_sentinel;
+        }
+    } else if (t_generic_type::e_string == gt.type) {
+        // upper('abc') - with a scalar string
+        t_string_view temp_string(gt);
+        temp_str = std::string(temp_string.begin(), temp_string.end()).c_str();
+    } else {
+        // An invalid call.
+        return m_none;
+    }
+
+    // don't try to intern an empty string as it will throw an error, but
+    // by this point we know the params are valid - so return the sentinel
+    // string value.
+    if (temp_str == "") {
+        return m_sentinel;
+    }
+
+    boost::to_upper(temp_str);
+
+    t_uindex interned = t_computed_function::EXPRESSION_VOCAB->get_interned(temp_str);
+
+    // Return the sentinel with the uint64 data field set to the
+    // index of the string in the vocab. The compute() and recompute() methods
+    // will look in the uint64 field for all DTYPE_STR scalars from
+    // expression.value().
+    m_rval.m_data.m_uint64 = interned;
+
+    return m_rval;
+}
+
+template <typename T>
+lower<T>::lower()
+    : exprtk::igeneric_function<T>("?") {
+        t_tscalar sentinel;
+        t_tscalar rval;
+
+        // The sentinel is a string scalar that is returned to indicate a
+        // valid call to the function without actually computing any values.
+        sentinel.m_type = DTYPE_STR;
+        sentinel.m_status = STATUS_VALID;
+        sentinel.m_data.m_uint64 = 0;
+
+        // The rval is the scalar that is returned out from each call to the
+        // function. Because strings are interned in a vocabulary, the only
+        // thing that is returned is a uint64 value that contains the index
+        // into the expression vocab.
+        rval.m_type = DTYPE_STR;
+        rval.m_status = STATUS_VALID;
+
+        m_sentinel = sentinel;
+        m_rval = rval;
+
+        // m_none is a scalar with DTYPE_NONE that indicates an invalid
+        // call to the function.
+        m_none = mknone();
+    }
+
+template <typename T>
+lower<T>::~lower() {}
+
+template <>
+t_tscalar lower<t_tscalar>::operator()(t_parameter_list parameters) {
     std::string temp_str;
 
     if (parameters.size() != 1) {
@@ -117,28 +248,57 @@ t_tscalar upper<t_tscalar>::operator()(t_parameter_list parameters) {
         t_tscalar temp_scalar = temp();
 
         if (temp_scalar.get_dtype() != DTYPE_STR || !temp_scalar.is_valid() || temp_scalar.is_none()) {
-            return mknone();
+            return m_none;
         }
 
-        temp_str = temp_scalar.to_string();
+        // If the scalar argument has a value in the uint64 field that is less
+        // than the number of items in the vocab and greater than 0, then it
+        // is a valid string scalar output by a previous call to this function.
+        //
+        // This check works because there is either exactly `num_rows` values
+        // in the vocab (for a column whose values are all unique across every
+        // row), or there are less than `num_rows` values (for a column with
+        // duplicate strings) as reading into an uninitialized
+        // uint64 field is undefined behavior (but during testing, consistently
+        // returns an extremely large int).
+        if (temp_scalar.m_data.m_uint64 > 0
+            && temp_scalar.m_data.m_uint64 < t_computed_function::EXPRESSION_VOCAB->get_vlenidx()) {
+            temp_str = std::string(t_computed_function::EXPRESSION_VOCAB->unintern_c(temp_scalar.m_data.m_uint64));
+        } else if (temp_scalar.m_data.m_charptr != nullptr) {
+            // If there are no values in the uint64/it is uninitialized, but
+            // the scalar has a charptr value then read the string out from
+            // the scalar itself.
+            temp_str = temp_scalar.to_string();
+        } else {
+            return m_sentinel;
+        }
     } else if (t_generic_type::e_string == gt.type) {
+        // upper('abc') - with a scalar string
         t_string_view temp_string(gt);
-        temp_str = std::string(temp_string.begin(), temp_string.end());
+        temp_str = std::string(temp_string.begin(), temp_string.end()).c_str();
     } else {
-        return mknone();
+        // An invalid call.
+        return m_none;
     }
 
-    if (m_output_column == nullptr) {
+    // don't try to intern an empty string as it will throw an error, but
+    // by this point we know the params are valid - so return the sentinel
+    // string value.
+    if (temp_str == "") {
         return m_sentinel;
     }
 
-    boost::to_upper(temp_str);
+    boost::to_lower(temp_str);
 
-    // automatically interns in the output column
-    m_output_column->set_nth(m_ridx, temp_str);
-    m_ridx++;
+    t_uindex interned = t_computed_function::EXPRESSION_VOCAB->get_interned(temp_str);
 
-    return m_sentinel;
+    // Return the sentinel with the uint64 data field set to the
+    // index of the string in the vocab. The compute() and recompute() methods
+    // will look in the uint64 field for all DTYPE_STR scalars from
+    // expression.value().
+    m_rval.m_data.m_uint64 = interned;
+
+    return m_rval;
 }
 
 template <typename T>
@@ -153,6 +313,11 @@ dbkt<T>::DBKT_UNIT_MAP = {
     {"Y", t_dbkt_unit::YEARS}
 };
 
+/**
+ * @brief bucket(num, 10), bucket(date, 15, 'D')
+ * 
+ * @tparam T 
+ */
 template <typename T>
 dbkt<T>::dbkt()
     : exprtk::igeneric_function<T>("TS") {
@@ -437,6 +602,7 @@ void _year_bucket(t_tscalar& val, t_tscalar& rval) {
 // Explicitly instantiate all exprtk function templates.
 template struct col<t_tscalar>;
 template struct upper<t_tscalar>;
+template struct lower<t_tscalar>;
 template struct dbkt<t_tscalar>;
 
 /**

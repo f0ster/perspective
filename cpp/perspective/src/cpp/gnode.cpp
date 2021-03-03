@@ -106,6 +106,16 @@ t_gnode::init() {
         input_port->get_table()->flatten();
     }
 
+    // Initialize the vocab for expressions
+    t_lstore_recipe vlendata_args(
+        "", "__EXPRESSION_VOCAB_VLENDATA__", DEFAULT_EMPTY_CAPACITY, BACKING_STORE_MEMORY);
+
+    t_lstore_recipe extents_args(
+        "", "__EXPRESSION_VOCAB_VLENDATA__", DEFAULT_EMPTY_CAPACITY, BACKING_STORE_MEMORY);
+
+    m_expression_vocab.reset(new t_vocab(vlendata_args, extents_args));
+    m_expression_vocab->init(true);
+
     m_init = true;
 }
 
@@ -1067,7 +1077,7 @@ t_gnode::_compute_expressions(
     std::vector<std::shared_ptr<t_data_table>> tables) {
     for (std::shared_ptr<t_data_table> table : tables) {
         for (const auto& expression : m_expression_map) {
-            expression.second.compute(table);
+            expression.second.compute(table, m_expression_vocab);
         }
     }
 }
@@ -1079,7 +1089,7 @@ t_gnode::_recompute_expressions(
     const std::vector<t_rlookup>& changed_rows
 ) {
     for (const auto& expression : m_expression_map) {
-        expression.second.recompute(tbl, flattened, changed_rows);
+        expression.second.recompute(tbl, flattened, changed_rows, m_expression_vocab);
     }
 }
 

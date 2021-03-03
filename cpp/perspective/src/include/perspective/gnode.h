@@ -425,6 +425,10 @@ private:
     // track all expressions on this gnode
     tsl::ordered_map<std::string, t_computed_expression> m_expression_map;
 
+    // Expressions that create strings need to intern their strings so that
+    // memory leaks/errors do not happen later.
+    std::shared_ptr<t_vocab> m_expression_vocab;
+
     bool m_init;
     t_uindex m_id;
 

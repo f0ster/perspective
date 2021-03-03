@@ -31,14 +31,17 @@ t_computed_expression::t_computed_expression(
 
 void
 t_computed_expression::compute(
-    std::shared_ptr<t_data_table> data_table) const {
+    std::shared_ptr<t_data_table> data_table,
+    std::shared_ptr<t_vocab> vocab) const {
     auto start = std::chrono::high_resolution_clock::now(); 
     exprtk::symbol_table<t_tscalar> sym_table;
 
-    computed_function::dbkt<t_tscalar> dbkt_fn = computed_function::dbkt<t_tscalar>();
-    computed_function::upper<t_tscalar> upper_fn = computed_function::upper<t_tscalar>();
+    static computed_function::dbkt<t_tscalar> dbkt_fn = computed_function::dbkt<t_tscalar>();
+    static computed_function::upper<t_tscalar> upper_fn = computed_function::upper<t_tscalar>();
+    static computed_function::lower<t_tscalar> lower_fn = computed_function::lower<t_tscalar>();
     sym_table.add_function("dbkt", dbkt_fn);
     sym_table.add_function("upper", upper_fn);
+    sym_table.add_function("lower", lower_fn);
 
     exprtk::expression<t_tscalar> expr_definition;
     std::vector<std::pair<std::string, t_tscalar>> values;
@@ -80,8 +83,6 @@ t_computed_expression::compute(
     auto num_rows = data_table->size();
     output_column->reserve(num_rows);
 
-    upper_fn.m_output_column = output_column;
-
     for (t_uindex ridx = 0; ridx < num_rows; ++ridx) {
         for (t_uindex cidx = 0; cidx < num_input_columns; ++cidx) {
             const std::string& column_id = m_column_ids[cidx].first;
@@ -89,12 +90,23 @@ t_computed_expression::compute(
         }
     
         t_tscalar value = expr_definition.value();
+        if (!value.is_valid() || value.is_none()) {
+            output_column->clear(ridx);
+        }
 
-        // String outputs are already set inside the function.
-        if (value.get_dtype() != DTYPE_STR) {
+        // Special casing for string scalars as we need to clone out
+        // of the intermediate dictionary.
+        if (value.get_dtype() == DTYPE_STR) {
+            const char* uninterned_str = t_computed_function::EXPRESSION_VOCAB->unintern_c(value.m_data.m_uint64);
+
+            // string will be copied into the output column's vocab.
+            output_column->set_nth(ridx, uninterned_str);
+        } else {
             output_column->set_scalar(ridx, value);
         }
     }
+
+    t_computed_function::EXPRESSION_VOCAB->verify();
 
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); 
@@ -105,13 +117,16 @@ void
 t_computed_expression::recompute(
     std::shared_ptr<t_data_table> gstate_table,
     std::shared_ptr<t_data_table> flattened,
-    const std::vector<t_rlookup>& changed_rows) const {
+    const std::vector<t_rlookup>& changed_rows,
+    std::shared_ptr<t_vocab> vocab) const {
     exprtk::symbol_table<t_tscalar> sym_table;
 
     computed_function::dbkt<t_tscalar> dbkt_fn = computed_function::dbkt<t_tscalar>();
     computed_function::upper<t_tscalar> upper_fn = computed_function::upper<t_tscalar>();
+    computed_function::lower<t_tscalar> lower_fn = computed_function::lower<t_tscalar>();
     sym_table.add_function("dbkt", dbkt_fn);
     sym_table.add_function("upper", upper_fn);
+    sym_table.add_function("lower", lower_fn);
 
     exprtk::expression<t_tscalar> expr_definition;
     std::vector<std::pair<std::string, t_tscalar>> values;
@@ -163,8 +178,6 @@ t_computed_expression::recompute(
 
     auto output_column = flattened->add_column_sptr(m_expression_string, m_dtype, true);
     output_column->reserve(gstate_table->size());
-
-    upper_fn.m_output_column = output_column;
 
     t_uindex num_rows = changed_rows.size();
 
@@ -236,7 +249,18 @@ t_computed_expression::recompute(
 
         t_tscalar value = expr_definition.value();
 
-        if (value.get_dtype() != DTYPE_STR) {
+        if (!value.is_valid() || value.is_none()) {
+            output_column->clear(idx);
+        }
+
+        // Special casing for string scalars as we need to clone out
+        // of the intermediate dictionary.
+        if (value.get_dtype() == DTYPE_STR) {
+            const char* uninterned_str = t_computed_function::EXPRESSION_VOCAB->unintern_c(value.m_data.m_uint64);
+
+            // string will be copied into the output column's vocab.
+            output_column->set_nth(idx, uninterned_str);
+        } else {
             output_column->set_scalar(idx, value);
         }
     }
@@ -278,8 +302,10 @@ t_computed_expression_parser::precompute(
 
     computed_function::dbkt<t_tscalar> dbkt_fn = computed_function::dbkt<t_tscalar>();
     computed_function::upper<t_tscalar> upper_fn = computed_function::upper<t_tscalar>();
+    computed_function::lower<t_tscalar> lower_fn = computed_function::lower<t_tscalar>();
     sym_table.add_function("dbkt", dbkt_fn);
     sym_table.add_function("upper", upper_fn);
+    sym_table.add_function("lower", lower_fn);
 
     exprtk::expression<t_tscalar> expr_definition;
 
@@ -341,8 +367,10 @@ t_computed_expression_parser::get_dtype(
 
     computed_function::dbkt<t_tscalar> dbkt_fn = computed_function::dbkt<t_tscalar>();
     computed_function::upper<t_tscalar> upper_fn = computed_function::upper<t_tscalar>();
+    computed_function::lower<t_tscalar> lower_fn = computed_function::lower<t_tscalar>();
     sym_table.add_function("dbkt", dbkt_fn);
     sym_table.add_function("upper", upper_fn);
+    sym_table.add_function("lower", lower_fn);
 
     // We aren't accessing values over multiple iterations, so we don't need
     // to track the column name.
