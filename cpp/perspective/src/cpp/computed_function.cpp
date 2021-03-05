@@ -10,21 +10,6 @@
 #include <perspective/computed_function.h>
 
 namespace perspective {
-std::shared_ptr<t_vocab> t_computed_function::EXPRESSION_VOCAB = nullptr;
-
-void t_computed_function::init() {
-    t_lstore_recipe vlendata_args(
-        "", "__EXPRESSION_VOCAB_VLENDATA__", DEFAULT_EMPTY_CAPACITY, BACKING_STORE_MEMORY);
-
-    t_lstore_recipe extents_args(
-        "", "__EXPRESSION_VOCAB_VLENDATA__", DEFAULT_EMPTY_CAPACITY, BACKING_STORE_MEMORY);
-
-    t_computed_function::EXPRESSION_VOCAB.reset(new t_vocab(vlendata_args, extents_args));
-    t_computed_function::EXPRESSION_VOCAB->init(true);
-
-    // Block off the vocabulary at index 0 since we use it as a sentinel value
-    t_computed_function::EXPRESSION_VOCAB->get_interned("__PSP_SENTINEL__");
-}
 
 namespace computed_function {
 
@@ -39,75 +24,75 @@ using uint64 = std::uint64_t;
 using float32 = float;
 using float64 = double;
 
-template <typename T>
-col<T>::col(std::shared_ptr<t_data_table> data_table, const tsl::hopscotch_set<std::string>& input_columns)
-    : m_schema(nullptr)
-    , m_input_columns(std::move(input_columns))
-    , m_columns({})
-    , m_ridxs({}) {
-        // TODO: move into init()?
-        for (const auto& column_name : input_columns) {
-            m_columns[column_name] = data_table->get_column(column_name);
-            m_ridxs[column_name] = 0;
-        }
-    }
+// template <typename T>
+// col<T>::col(std::shared_ptr<t_data_table> data_table, const tsl::hopscotch_set<std::string>& input_columns)
+//     : m_schema(nullptr)
+//     , m_input_columns(std::move(input_columns))
+//     , m_columns({})
+//     , m_ridxs({}) {
+//         // TODO: move into init()?
+//         for (const auto& column_name : input_columns) {
+//             m_columns[column_name] = data_table->get_column(column_name);
+//             m_ridxs[column_name] = 0;
+//         }
+//     }
 
-template <typename T>
-col<T>::col(std::shared_ptr<t_schema> schema)
-    : m_schema(schema)
-    , m_columns({})
-    , m_ridxs({}) {}
+// template <typename T>
+// col<T>::col(std::shared_ptr<t_schema> schema)
+//     : m_schema(schema)
+//     , m_columns({})
+//     , m_ridxs({}) {}
 
-template <typename T>
-col<T>::~col() {}
+// template <typename T>
+// col<T>::~col() {}
 
-template <typename T>
-T col<T>::next(
-    const std::string& column_name) {
-    // std::cout << "NOT IMPLEMENTED" << std::endl;
-    std::string error = "next<T>() Not implemented!\n";
-    PSP_COMPLAIN_AND_ABORT(error);
-}
+// template <typename T>
+// T col<T>::next(
+//     const std::string& column_name) {
+//     // std::cout << "NOT IMPLEMENTED" << std::endl;
+//     std::string error = "next<T>() Not implemented!\n";
+//     PSP_COMPLAIN_AND_ABORT(error);
+// }
 
-template <>
-t_tscalar col<t_tscalar>::next(
-    const std::string& column_name) {
-    t_uindex ridx = m_ridxs[column_name];
-    t_tscalar rval = m_columns[column_name]->get_scalar(ridx);
-    m_ridxs[column_name] += 1;
-    return rval;
-}
+// template <>
+// t_tscalar col<t_tscalar>::next(
+//     const std::string& column_name) {
+//     t_uindex ridx = m_ridxs[column_name];
+//     t_tscalar rval = m_columns[column_name]->get_scalar(ridx);
+//     m_ridxs[column_name] += 1;
+//     return rval;
+// }
 
-template <typename T>
-T col<T>::operator()(t_parameter_list parameters) {
-    auto num_params = parameters.size();
+// template <typename T>
+// T col<T>::operator()(t_parameter_list parameters) {
+//     auto num_params = parameters.size();
 
-    if (num_params == 0) {
-        std::stringstream ss;
-        ss << "Expression error: col() function cannot be empty." << std::endl;
-        // std::cout << ss.str();
-        PSP_COMPLAIN_AND_ABORT(ss.str());
-    }
+//     if (num_params == 0) {
+//         std::stringstream ss;
+//         ss << "Expression error: col() function cannot be empty." << std::endl;
+//         // std::cout << ss.str();
+//         PSP_COMPLAIN_AND_ABORT(ss.str());
+//     }
 
-    t_string_view param = t_string_view(parameters[0]);
-    std::string column_name(param.begin(), param.size());
+//     t_string_view param = t_string_view(parameters[0]);
+//     std::string column_name(param.begin(), param.size());
 
-    if (m_schema != nullptr) {
-        t_tscalar rval;
-        // scalar is valid here, as operations would fail and return
-        // none if the inputs are not valid scalars.
-        rval.m_status = STATUS_VALID;
-        rval.m_type = m_schema->get_dtype(column_name);
-        m_input_columns.insert(column_name);
-        return rval;
-    }
+//     if (m_schema != nullptr) {
+//         t_tscalar rval;
+//         // scalar is valid here, as operations would fail and return
+//         // none if the inputs are not valid scalars.
+//         rval.m_status = STATUS_VALID;
+//         rval.m_type = m_schema->get_dtype(column_name);
+//         m_input_columns.insert(column_name);
+//         return rval;
+//     }
 
-    return next(column_name);
-}
+//     return next(column_name);
+// }
 
-template <typename T>
-upper<T>::upper()
-    : exprtk::igeneric_function<T>("?") {
+upper::upper(std::shared_ptr<t_vocab> expression_vocab)
+    : exprtk::igeneric_function<t_tscalar>("?")
+    , m_expression_vocab(expression_vocab)  {
         t_tscalar sentinel;
         t_tscalar rval;
 
@@ -116,6 +101,8 @@ upper<T>::upper()
         sentinel.m_type = DTYPE_STR;
         sentinel.m_status = STATUS_VALID;
         sentinel.m_data.m_uint64 = 0;
+        sentinel.m_data.m_charptr = nullptr;
+
 
         // The rval is the scalar that is returned out from each call to the
         // function. Because strings are interned in a vocabulary, the only
@@ -123,6 +110,8 @@ upper<T>::upper()
         // into the expression vocab.
         rval.m_type = DTYPE_STR;
         rval.m_status = STATUS_VALID;
+        rval.m_data.m_uint64 = 0;
+        rval.m_data.m_charptr = nullptr;
 
         m_sentinel = sentinel;
         m_rval = rval;
@@ -132,11 +121,9 @@ upper<T>::upper()
         m_none = mknone();
     }
 
-template <typename T>
-upper<T>::~upper() {}
+upper::~upper() {}
 
-template <>
-t_tscalar upper<t_tscalar>::operator()(t_parameter_list parameters) {
+t_tscalar upper::operator()(t_parameter_list parameters) {
     std::string temp_str;
 
     if (parameters.size() != 1) {
@@ -153,24 +140,18 @@ t_tscalar upper<t_tscalar>::operator()(t_parameter_list parameters) {
             return m_none;
         }
 
-        // If the scalar argument has a value in the uint64 field that is less
-        // than the number of items in the vocab and greater than 0, then it
-        // is a valid string scalar output by a previous call to this function.
-        //
-        // This check works because there is either exactly `num_rows` values
-        // in the vocab (for a column whose values are all unique across every
-        // row), or there are less than `num_rows` values (for a column with
-        // duplicate strings) as reading into an uninitialized
-        // uint64 field is undefined behavior (but during testing, consistently
-        // returns an extremely large int).
-        if (temp_scalar.m_data.m_uint64 > 0
-            && temp_scalar.m_data.m_uint64 < t_computed_function::EXPRESSION_VOCAB->get_vlenidx()) {
-            temp_str = std::string(t_computed_function::EXPRESSION_VOCAB->unintern_c(temp_scalar.m_data.m_uint64));
-        } else if (temp_scalar.m_data.m_charptr != nullptr) {
-            // If there are no values in the uint64/it is uninitialized, but
-            // the scalar has a charptr value then read the string out from
-            // the scalar itself.
-            temp_str = temp_scalar.to_string();
+        if (m_expression_vocab != nullptr) {
+            if (temp_scalar.m_data.m_uint64 >= 0
+                && temp_scalar.m_data.m_uint64 < m_expression_vocab->get_vlenidx()) {
+                temp_str = std::string(m_expression_vocab->unintern_c(temp_scalar.m_data.m_uint64));
+            } else if (temp_scalar.m_data.m_charptr != nullptr) {
+                // If there are no values in the uint64/it is uninitialized, but
+                // the scalar has a charptr value then read the string out from
+                // the scalar itself.
+                temp_str = temp_scalar.to_string();
+            } else {
+                PSP_COMPLAIN_AND_ABORT("[upper] Invalid scalar found: " + temp_scalar.repr());
+            }
         } else {
             return m_sentinel;
         }
@@ -178,6 +159,9 @@ t_tscalar upper<t_tscalar>::operator()(t_parameter_list parameters) {
         // upper('abc') - with a scalar string
         t_string_view temp_string(gt);
         temp_str = std::string(temp_string.begin(), temp_string.end()).c_str();
+
+        // Don't allow empty strings
+        if (temp_str == "") return m_none;
     } else {
         // An invalid call.
         return m_none;
@@ -186,13 +170,13 @@ t_tscalar upper<t_tscalar>::operator()(t_parameter_list parameters) {
     // don't try to intern an empty string as it will throw an error, but
     // by this point we know the params are valid - so return the sentinel
     // string value.
-    if (temp_str == "") {
+    if (temp_str == "" || m_expression_vocab == nullptr) {
         return m_sentinel;
     }
 
     boost::to_upper(temp_str);
 
-    t_uindex interned = t_computed_function::EXPRESSION_VOCAB->get_interned(temp_str);
+    t_uindex interned = m_expression_vocab->get_interned(temp_str);
 
     // Return the sentinel with the uint64 data field set to the
     // index of the string in the vocab. The compute() and recompute() methods
@@ -203,133 +187,125 @@ t_tscalar upper<t_tscalar>::operator()(t_parameter_list parameters) {
     return m_rval;
 }
 
-template <typename T>
-lower<T>::lower()
-    : exprtk::igeneric_function<T>("?") {
-        t_tscalar sentinel;
-        t_tscalar rval;
+// template <typename T>
+// lower<T>::lower(std::shared_ptr<t_vocab> expression_vocab)
+//     : exprtk::igeneric_function<T>("?")
+//     , m_expression_vocab(expression_vocab) {
+//         t_tscalar sentinel;
+//         t_tscalar rval;
 
-        // The sentinel is a string scalar that is returned to indicate a
-        // valid call to the function without actually computing any values.
-        sentinel.m_type = DTYPE_STR;
-        sentinel.m_status = STATUS_VALID;
-        sentinel.m_data.m_uint64 = 0;
+//         // The sentinel is a string scalar that is returned to indicate a
+//         // valid call to the function without actually computing any values.
+//         sentinel.m_type = DTYPE_STR;
+//         sentinel.m_status = STATUS_VALID;
+//         sentinel.m_data.m_uint64 = 0;
 
-        // The rval is the scalar that is returned out from each call to the
-        // function. Because strings are interned in a vocabulary, the only
-        // thing that is returned is a uint64 value that contains the index
-        // into the expression vocab.
-        rval.m_type = DTYPE_STR;
-        rval.m_status = STATUS_VALID;
+//         // The rval is the scalar that is returned out from each call to the
+//         // function. Because strings are interned in a vocabulary, the only
+//         // thing that is returned is a uint64 value that contains the index
+//         // into the expression vocab.
+//         rval.m_type = DTYPE_STR;
+//         rval.m_status = STATUS_VALID;
 
-        m_sentinel = sentinel;
-        m_rval = rval;
+//         m_sentinel = sentinel;
+//         m_rval = rval;
 
-        // m_none is a scalar with DTYPE_NONE that indicates an invalid
-        // call to the function.
-        m_none = mknone();
-    }
+//         // m_none is a scalar with DTYPE_NONE that indicates an invalid
+//         // call to the function.
+//         m_none = mknone();
+//     }
 
-template <typename T>
-lower<T>::~lower() {}
+// template <typename T>
+// lower<T>::~lower() {}
 
-template <>
-t_tscalar lower<t_tscalar>::operator()(t_parameter_list parameters) {
-    std::string temp_str;
+// template <>
+// t_tscalar lower<t_tscalar>::operator()(t_parameter_list parameters) {
+//     std::string temp_str;
 
-    if (parameters.size() != 1) {
-        return mknone();
-    }
+//     if (parameters.size() != 1) {
+//         return mknone();
+//     }
 
-    t_generic_type& gt = parameters[0];
+//     t_generic_type& gt = parameters[0];
 
-    if (t_generic_type::e_scalar == gt.type) {
-        t_scalar_view temp(gt);
-        t_tscalar temp_scalar = temp();
+//     if (t_generic_type::e_scalar == gt.type) {
+//         t_scalar_view temp(gt);
+//         t_tscalar temp_scalar = temp();
 
-        if (temp_scalar.get_dtype() != DTYPE_STR || !temp_scalar.is_valid() || temp_scalar.is_none()) {
-            return m_none;
-        }
+//         if (temp_scalar.get_dtype() != DTYPE_STR || !temp_scalar.is_valid() || temp_scalar.is_none()) {
+//             return m_none;
+//         }
 
-        // If the scalar argument has a value in the uint64 field that is less
-        // than the number of items in the vocab and greater than 0, then it
-        // is a valid string scalar output by a previous call to this function.
-        //
-        // This check works because there is either exactly `num_rows` values
-        // in the vocab (for a column whose values are all unique across every
-        // row), or there are less than `num_rows` values (for a column with
-        // duplicate strings) as reading into an uninitialized
-        // uint64 field is undefined behavior (but during testing, consistently
-        // returns an extremely large int).
-        if (temp_scalar.m_data.m_uint64 > 0
-            && temp_scalar.m_data.m_uint64 < t_computed_function::EXPRESSION_VOCAB->get_vlenidx()) {
-            temp_str = std::string(t_computed_function::EXPRESSION_VOCAB->unintern_c(temp_scalar.m_data.m_uint64));
-        } else if (temp_scalar.m_data.m_charptr != nullptr) {
-            // If there are no values in the uint64/it is uninitialized, but
-            // the scalar has a charptr value then read the string out from
-            // the scalar itself.
-            temp_str = temp_scalar.to_string();
-        } else {
-            return m_sentinel;
-        }
-    } else if (t_generic_type::e_string == gt.type) {
-        // upper('abc') - with a scalar string
-        t_string_view temp_string(gt);
-        temp_str = std::string(temp_string.begin(), temp_string.end()).c_str();
-    } else {
-        // An invalid call.
-        return m_none;
-    }
+//         if (m_expression_vocab != nullptr) {
+//             if (temp_scalar.m_data.m_uint64 > 0
+//                 && temp_scalar.m_data.m_uint64 < m_expression_vocab->get_vlenidx()) {
+//                 temp_str = std::string(m_expression_vocab->unintern_c(temp_scalar.m_data.m_uint64));
+//             } else if (temp_scalar.m_data.m_charptr != nullptr) {
+//                 // If there are no values in the uint64/it is uninitialized, but
+//                 // the scalar has a charptr value then read the string out from
+//                 // the scalar itself.
+//                 temp_str = temp_scalar.to_string();
+//             } else {
+//                 PSP_COMPLAIN_AND_ABORT("[lower] Invalid scalar found: " + temp_scalar.repr());
+//             }
+//         } else {
+//             return m_sentinel;
+//         }
+//     } else if (t_generic_type::e_string == gt.type) {
+//         // upper('abc') - with a scalar string
+//         t_string_view temp_string(gt);
+//         temp_str = std::string(temp_string.begin(), temp_string.end()).c_str();
 
-    // don't try to intern an empty string as it will throw an error, but
-    // by this point we know the params are valid - so return the sentinel
-    // string value.
-    if (temp_str == "") {
-        return m_sentinel;
-    }
+//         // Don't allow empty strings
+//         if (temp_str == "") return m_none;
+//     } else {
+//         // An invalid call.
+//         return m_none;
+//     }
 
-    boost::to_lower(temp_str);
+//     // don't try to intern an empty string as it will throw an error, but
+//     // by this point we know the params are valid - so return the sentinel
+//     // string value.
+//     if (temp_str == "" || m_expression_vocab == nullptr) {
+//         return m_sentinel;
+//     }
 
-    t_uindex interned = t_computed_function::EXPRESSION_VOCAB->get_interned(temp_str);
+//     boost::to_lower(temp_str);
 
-    // Return the sentinel with the uint64 data field set to the
-    // index of the string in the vocab. The compute() and recompute() methods
-    // will look in the uint64 field for all DTYPE_STR scalars from
-    // expression.value().
-    m_rval.m_data.m_uint64 = interned;
+//     t_uindex interned = m_expression_vocab->get_interned(temp_str);
 
-    return m_rval;
-}
+//     // Return the sentinel with the uint64 data field set to the
+//     // index of the string in the vocab. The compute() and recompute() methods
+//     // will look in the uint64 field for all DTYPE_STR scalars from
+//     // expression.value().
+//     m_rval.m_data.m_uint64 = interned;
 
-template <typename T>
-tsl::hopscotch_map<std::string, t_dbkt_unit>
-dbkt<T>::DBKT_UNIT_MAP = {
-    {"s", t_dbkt_unit::SECONDS},
-    {"m", t_dbkt_unit::MINUTES},
-    {"h", t_dbkt_unit::HOURS},
-    {"D", t_dbkt_unit::DAYS},
-    {"W", t_dbkt_unit::WEEKS},
-    {"M", t_dbkt_unit::MONTHS},
-    {"Y", t_dbkt_unit::YEARS}
+//     return m_rval;
+// }
+
+tsl::hopscotch_map<std::string, t_date_bucket_unit>
+date_bucket::UNIT_MAP = {
+    {"s", t_date_bucket_unit::SECONDS},
+    {"m", t_date_bucket_unit::MINUTES},
+    {"h", t_date_bucket_unit::HOURS},
+    {"D", t_date_bucket_unit::DAYS},
+    {"W", t_date_bucket_unit::WEEKS},
+    {"M", t_date_bucket_unit::MONTHS},
+    {"Y", t_date_bucket_unit::YEARS}
 };
 
 /**
  * @brief bucket(num, 10), bucket(date, 15, 'D')
- * 
- * @tparam T 
  */
-template <typename T>
-dbkt<T>::dbkt()
-    : exprtk::igeneric_function<T>("TS") {
+date_bucket::date_bucket()
+    : exprtk::igeneric_function<t_tscalar>("TS") {
 }
 
-template <typename T>
-dbkt<T>::~dbkt() {}
+date_bucket::~date_bucket() {}
 
-template <>
-t_tscalar dbkt<t_tscalar>::operator()(t_parameter_list parameters) {
+t_tscalar date_bucket::operator()(t_parameter_list parameters) {
     t_tscalar val;
-    t_dbkt_unit unit;
+    t_date_bucket_unit unit;
 
     for (auto i = 0; i < parameters.size(); ++i) {
         t_generic_type& gt = parameters[i];
@@ -343,14 +319,14 @@ t_tscalar dbkt<t_tscalar>::operator()(t_parameter_list parameters) {
             t_string_view temp_string(gt);
             std::string unit_str = std::string(temp_string.begin(), temp_string.end());
 
-            if (dbkt::DBKT_UNIT_MAP.count(unit_str) == 0) {
-                std::cerr << "[dbkt] Invalid unit in dbkt(): " << unit << std::endl;
+            if (date_bucket::UNIT_MAP.count(unit_str) == 0) {
+                std::cerr << "[date_bucket] Invalid unit in date_bucket(): " << unit << std::endl;
                 return mknone();
             }
 
-            unit = dbkt::DBKT_UNIT_MAP[unit_str];
+            unit = date_bucket::UNIT_MAP[unit_str];
         } else {
-            std::cerr << "[dbkt] Invalid parameter in dbkt()" << std::endl;
+            std::cerr << "[date_bucket] Invalid parameter in date_bucket()" << std::endl;
             return mknone();
         }
     }
@@ -358,25 +334,25 @@ t_tscalar dbkt<t_tscalar>::operator()(t_parameter_list parameters) {
     t_tscalar rval;
     
     switch (unit) {
-        case t_dbkt_unit::SECONDS: {
+        case t_date_bucket_unit::SECONDS: {
             _second_bucket(val, rval);
         } break;
-        case t_dbkt_unit::MINUTES: {
+        case t_date_bucket_unit::MINUTES: {
             _minute_bucket(val, rval);
         } break;
-        case t_dbkt_unit::HOURS: {
+        case t_date_bucket_unit::HOURS: {
             _hour_bucket(val, rval);
         } break;
-        case t_dbkt_unit::DAYS: {
+        case t_date_bucket_unit::DAYS: {
             _day_bucket(val, rval);
         } break;
-        case t_dbkt_unit::WEEKS: {
+        case t_date_bucket_unit::WEEKS: {
             _week_bucket(val, rval);
         } break;
-        case t_dbkt_unit::MONTHS: {
+        case t_date_bucket_unit::MONTHS: {
             _month_bucket(val, rval);
         } break;
-        case t_dbkt_unit::YEARS: {
+        case t_date_bucket_unit::YEARS: {
             _year_bucket(val, rval);
         } break;
         default: {
@@ -599,11 +575,38 @@ void _year_bucket(t_tscalar& val, t_tscalar& rval) {
     }
 }
 
-// Explicitly instantiate all exprtk function templates.
-template struct col<t_tscalar>;
-template struct upper<t_tscalar>;
-template struct lower<t_tscalar>;
-template struct dbkt<t_tscalar>;
+t_tscalar now() {
+    t_tscalar rval;
+    auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    rval.set(t_time(now));
+    return rval;
+}
+
+t_tscalar today() {
+    t_tscalar rval;
+
+    auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch());
+
+    // Convert the timestamp to a `sys_time` (alias for `time_point`)
+    date::sys_time<std::chrono::milliseconds> ts(now);
+
+    // Use localtime so that the day of week is consistent with all output
+    // datetimes, which are in local time
+    std::time_t temp = std::chrono::system_clock::to_time_t(ts);
+
+    // Convert to a std::tm
+    std::tm* t = std::localtime(&temp);
+
+    // Get the year and create a new `t_date`
+    std::int32_t year = static_cast<std::int32_t>(t->tm_year + 1900);
+
+    // Month in `t_date` is [0-11]
+    std::int32_t month = static_cast<std::uint32_t>(t->tm_mon);
+    std::uint32_t day = static_cast<std::uint32_t>(t->tm_mday);
+
+    rval.set(t_date(year, month, day));
+    return rval;
+}
 
 /**
  * @brief Generate all type permutations for a numeric function that takes one
