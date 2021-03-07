@@ -13,7 +13,6 @@ import {IThemeManager, WidgetTracker, Dialog, showDialog} from "@jupyterlab/appu
 import {ABCWidgetFactory, DocumentRegistry, IDocumentWidget, DocumentWidget} from "@jupyterlab/docregistry";
 import {PerspectiveWidget} from "./psp_widget";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const perspective = require("@finos/perspective");
 
 /**
@@ -25,10 +24,8 @@ const FACTORY_ARROW = "ArrowPerspective";
 
 const RENDER_TIMEOUT = 1000;
 
-type IPerspectiveDocumentType = "csv" | "json" | "arrow";
-
 // create here to reuse for exception handling
-const baddialog = (): void => {
+const baddialog = () => {
     showDialog({
         body: "Perspective could not render the data",
         buttons: [Dialog.okButton({label: "Dismiss"})],
@@ -37,8 +34,8 @@ const baddialog = (): void => {
     });
 };
 
-export class PerspectiveDocumentWidget extends DocumentWidget<PerspectiveWidget> {
-    constructor(options: DocumentWidget.IOptionsOptionalContent<PerspectiveWidget>, type: IPerspectiveDocumentType = "csv") {
+export class PerspectiveDocumentWidget extends DocumentWidget {
+    constructor(options, type = "csv") {
         super({content: new PerspectiveWidget("Perspective"), context: options.context, reveal: options.reveal});
 
         this._psp = this.content;
@@ -57,7 +54,7 @@ export class PerspectiveDocumentWidget extends DocumentWidget<PerspectiveWidget>
         });
     }
 
-    private _update(): void {
+    _update() {
         try {
             let data;
             if (this._type === "csv") {
@@ -70,7 +67,7 @@ export class PerspectiveDocumentWidget extends DocumentWidget<PerspectiveWidget>
                 data = this._context.model.toJSON();
                 if (Array.isArray(data) && data.length > 0) {
                     // already is records form, load directly
-                    data = data as Array<object>;
+                    
                 } else {
                     // Column-oriented or single records JSON
                     // don't handle for now, just need to implement
@@ -85,7 +82,7 @@ export class PerspectiveDocumentWidget extends DocumentWidget<PerspectiveWidget>
             perspective
                 .worker()
                 .table(data)
-                .then((table: any) => {
+                .then((table) => {
                     this._table = table;
                     if (this._psp.viewer.table === undefined) {
                         // construct new table
@@ -103,7 +100,7 @@ export class PerspectiveDocumentWidget extends DocumentWidget<PerspectiveWidget>
         this._psp.dark = document.body.getAttribute("data-jp-theme-light") === "false";
     }
 
-    dispose(): void {
+    dispose() {
         if (this._monitor) {
             this._monitor.dispose();
         }
@@ -111,22 +108,16 @@ export class PerspectiveDocumentWidget extends DocumentWidget<PerspectiveWidget>
         super.dispose();
     }
 
-    public get psp(): PerspectiveWidget {
+    get psp() {
         return this._psp;
     }
-
-    private _type: IPerspectiveDocumentType;
-    private _context: DocumentRegistry.Context;
-    private _psp: PerspectiveWidget;
-    private _table: any;
-    private _monitor: ActivityMonitor<DocumentRegistry.IModel, void> | null = null;
 }
 
 /**
  * A widget factory for CSV widgets.
  */
-export class PerspectiveCSVFactory extends ABCWidgetFactory<IDocumentWidget<PerspectiveWidget>> {
-    protected createNewWidget(context: DocumentRegistry.Context): IDocumentWidget<PerspectiveWidget> {
+export class PerspectiveCSVFactory extends ABCWidgetFactory {
+    createNewWidget(context) {
         return new PerspectiveDocumentWidget({context}, "csv");
     }
 }
@@ -134,8 +125,8 @@ export class PerspectiveCSVFactory extends ABCWidgetFactory<IDocumentWidget<Pers
 /**
  * A widget factory for JSON widgets.
  */
-export class PerspectiveJSONFactory extends ABCWidgetFactory<IDocumentWidget<PerspectiveWidget>> {
-    protected createNewWidget(context: DocumentRegistry.Context): IDocumentWidget<PerspectiveWidget> {
+export class PerspectiveJSONFactory extends ABCWidgetFactory {
+    createNewWidget(context) {
         return new PerspectiveDocumentWidget({context}, "json");
     }
 }
@@ -143,8 +134,8 @@ export class PerspectiveJSONFactory extends ABCWidgetFactory<IDocumentWidget<Per
 /**
  * A widget factory for arrow widgets.
  */
-export class PerspectiveArrowFactory extends ABCWidgetFactory<IDocumentWidget<PerspectiveWidget>> {
-    protected createNewWidget(context: DocumentRegistry.Context): IDocumentWidget<PerspectiveWidget> {
+export class PerspectiveArrowFactory extends ABCWidgetFactory {
+    createNewWidget(context) {
         return new PerspectiveDocumentWidget({context}, "arrow");
     }
 }
@@ -152,7 +143,7 @@ export class PerspectiveArrowFactory extends ABCWidgetFactory<IDocumentWidget<Pe
 /**
  * Activate cssviewer extension for CSV files
  */
-function activate(app: JupyterFrontEnd, restorer: ILayoutRestorer | null, themeManager: IThemeManager | null): void {
+function activate(app, restorer, themeManager) {
     const factorycsv = new PerspectiveCSVFactory({
         name: FACTORY_CSV,
         fileTypes: ["csv"],
@@ -275,15 +266,15 @@ function activate(app: JupyterFrontEnd, restorer: ILayoutRestorer | null, themeM
     });
 
     // Keep the themes up-to-date.
-    const updateThemes = (): void => {
+    const updateThemes = () => {
         const isLight = themeManager && themeManager.theme ? themeManager.isLight(themeManager.theme) : true;
-        trackercsv.forEach((pspDocWidget: PerspectiveDocumentWidget) => {
+        trackercsv.forEach((pspDocWidget) => {
             pspDocWidget.psp.dark = !isLight;
         });
-        trackerjson.forEach((pspDocWidget: PerspectiveDocumentWidget) => {
+        trackerjson.forEach((pspDocWidget) => {
             pspDocWidget.psp.dark = !isLight;
         });
-        trackerarrow.forEach((pspDocWidget: PerspectiveDocumentWidget) => {
+        trackerarrow.forEach((pspDocWidget) => {
             pspDocWidget.psp.dark = !isLight;
         });
     };
@@ -296,7 +287,7 @@ function activate(app: JupyterFrontEnd, restorer: ILayoutRestorer | null, themeM
 /**
  * The perspective extension for files
  */
-export const perspectiveRenderers: JupyterFrontEndPlugin<void> = {
+export const perspectiveRenderers = {
     activate: activate,
     id: "@finos/perspective-jupyterlab:renderers",
     requires: [],
