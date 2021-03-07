@@ -8,9 +8,9 @@
  */
 
 import {ActivityMonitor} from "@jupyterlab/coreutils";
-import {ILayoutRestorer, JupyterFrontEnd, JupyterFrontEndPlugin} from "@jupyterlab/application";
+import {ILayoutRestorer} from "@jupyterlab/application";
 import {IThemeManager, WidgetTracker, Dialog, showDialog} from "@jupyterlab/apputils";
-import {ABCWidgetFactory, DocumentRegistry, IDocumentWidget, DocumentWidget} from "@jupyterlab/docregistry";
+import {ABCWidgetFactory, IDocumentWidget, DocumentWidget} from "@jupyterlab/docregistry";
 import {PerspectiveWidget} from "./psp_widget";
 
 const perspective = require("@finos/perspective");
@@ -67,7 +67,6 @@ export class PerspectiveDocumentWidget extends DocumentWidget {
                 data = this._context.model.toJSON();
                 if (Array.isArray(data) && data.length > 0) {
                     // already is records form, load directly
-                    
                 } else {
                     // Column-oriented or single records JSON
                     // don't handle for now, just need to implement
@@ -82,7 +81,7 @@ export class PerspectiveDocumentWidget extends DocumentWidget {
             perspective
                 .worker()
                 .table(data)
-                .then((table) => {
+                .then(table => {
                     this._table = table;
                     if (this._psp.viewer.table === undefined) {
                         // construct new table
@@ -179,17 +178,29 @@ function activate(app, restorer, themeManager) {
         modelName: "base64"
     });
 
-    const trackercsv = new WidgetTracker<IDocumentWidget<PerspectiveWidget>>({
-        namespace: "csvperspective"
-    });
+    const trackercsv =
+        new WidgetTracker() <
+        IDocumentWidget <
+        PerspectiveWidget >>
+            {
+                namespace: "csvperspective"
+            };
 
-    const trackerjson = new WidgetTracker<IDocumentWidget<PerspectiveWidget>>({
-        namespace: "jsonperspective"
-    });
+    const trackerjson =
+        new WidgetTracker() <
+        IDocumentWidget <
+        PerspectiveWidget >>
+            {
+                namespace: "jsonperspective"
+            };
 
-    const trackerarrow = new WidgetTracker<IDocumentWidget<PerspectiveWidget>>({
-        namespace: "arrowperspective"
-    });
+    const trackerarrow =
+        new WidgetTracker() <
+        IDocumentWidget <
+        PerspectiveWidget >>
+            {
+                namespace: "arrowperspective"
+            };
 
     if (restorer) {
         // Handle state restoration.
@@ -268,13 +279,13 @@ function activate(app, restorer, themeManager) {
     // Keep the themes up-to-date.
     const updateThemes = () => {
         const isLight = themeManager && themeManager.theme ? themeManager.isLight(themeManager.theme) : true;
-        trackercsv.forEach((pspDocWidget) => {
+        trackercsv.forEach(pspDocWidget => {
             pspDocWidget.psp.dark = !isLight;
         });
-        trackerjson.forEach((pspDocWidget) => {
+        trackerjson.forEach(pspDocWidget => {
             pspDocWidget.psp.dark = !isLight;
         });
-        trackerarrow.forEach((pspDocWidget) => {
+        trackerarrow.forEach(pspDocWidget => {
             pspDocWidget.psp.dark = !isLight;
         });
     };

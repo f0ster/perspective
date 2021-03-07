@@ -7,6 +7,8 @@
  *
  */
 
+import {Client} from "@finos/perspective/dist/esm/api/client";
+
 /**
  * `PerspectiveJupyterClient` acts as a message bus between the frontend and
  * backend, passing messages from `perspective-viewer` (method calls,

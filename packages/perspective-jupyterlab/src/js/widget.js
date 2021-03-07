@@ -7,11 +7,7 @@
  *
  */
 
-import {Message} from "@lumino/messaging";
-import {DOMWidgetView} from "@jupyter-widgets/base";
-
-import {PerspectiveViewerOptions} from "@finos/perspective-viewer";
-import {PerspectiveWidget, PerspectiveWidgetOptions} from "./psp_widget";
+import {PerspectiveWidget} from "./psp_widget";
 
 /**
  * PerspectiveJupyterWidget is the ipywidgets front-end for the Perspective Jupyterlab plugin.

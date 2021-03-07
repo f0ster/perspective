@@ -9,12 +9,8 @@
 
 import "@finos/perspective-viewer";
 
-import {Table, TableData} from "@finos/perspective";
-import {Message} from "@lumino/messaging";
 import {Widget} from "@lumino/widgets";
 import {MIME_TYPE, PSP_CLASS, PSP_CONTAINER_CLASS, PSP_CONTAINER_CLASS_DARK} from "./utils";
-
-import {HTMLPerspectiveViewerElement, Pivots, Aggregates, Sort, ComputedColumns, PerspectiveViewerOptions, Filters, Columns} from "@finos/perspective-viewer";
 
 let _increment = 0;
 

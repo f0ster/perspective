@@ -9,10 +9,9 @@
 
 import {isEqual} from "underscore";
 import {DOMWidgetView} from "@jupyter-widgets/base";
-import {PerspectiveWorker, Table, View} from "@finos/perspective";
 
 import {PerspectiveJupyterWidget} from "./widget";
-import {PerspectiveJupyterClient, PerspectiveJupyterMessage} from "./client";
+import {PerspectiveJupyterClient} from "./client";
 
 const perspective = require("@finos/perspective");
 
@@ -277,7 +276,7 @@ export class PerspectiveView extends DOMWidgetView {
                 const kernel_table = this.perspective_client.open_table(msg.data["table_name"]);
                 const kernel_view = kernel_table.view();
                 kernel_view.then(kernel_view => {
-                    kernel_view.to_arrow().then((arrow) => {
+                    kernel_view.to_arrow().then(arrow => {
                         // Create a client side table
                         this.client_worker.table(arrow, table_options).then(client_table => {
                             if (this.pWidget.editable) {
