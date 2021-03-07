@@ -66,11 +66,6 @@ jobs:
 
   strategy:
     matrix:
-      Python27ManyLinux2010:
-        python.version: '2.7'
-        python_flag: '--python2'
-        manylinux_flag: '--manylinux2010'
-        artifact_name: 'cp27-cp27m-manylinux2010_x86_64'
       Python37ManyLinux2010:
         python.version: '3.7'
         python_flag: ''
@@ -243,11 +238,6 @@ jobs:
   strategy:
     matrix:
 
-      # Python27:
-      #   python.version: '2.7'
-      #   python_flag: '--python2'
-      #   artifact_name: 'cp27-cp27m-macosx_10_15_x86_64'
-
       Python37:
         python.version: '3.7'
         python_flag: ''
@@ -293,12 +283,6 @@ jobs:
       displayName: "Python 3 deps"
       condition: eq(variables['python_flag'], '')
     
-    # Last released PyArrow version on Python 2 is 0.16.0
-    - script: |
-        python -m pip install -U delocate wheel numpy "pyarrow==0.16.0" pip
-      displayName: "Python 2 deps"
-      condition: eq(variables['python_flag'], '--python2')
-
     - script: npm install -g yarn
       displayName: "Install Yarn"
 
