@@ -117,7 +117,10 @@ public:
 
     // Instances of Exprtk functions
     static computed_function::date_bucket DATE_BUCKET_FN;
+    static computed_function::intern INTERN_VALIDATOR_FN;
+    static computed_function::concat CONCAT_VALIDATOR_FN;
     static computed_function::upper UPPER_VALIDATOR_FN;
+    static computed_function::lower LOWER_VALIDATOR_FN;
 };
 
 } // end namespace perspective

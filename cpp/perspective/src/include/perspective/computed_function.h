@@ -70,18 +70,29 @@ typedef typename t_generic_type::string_view t_string_view;
 //     std::map<std::string, t_uindex> m_ridxs;
 // };
 
-struct upper : public exprtk::igeneric_function<t_tscalar> {
+#define STRING_FUNCTION_HEADER(NAME)                                    \
+    struct NAME : public exprtk::igeneric_function<t_tscalar> {        \
+        NAME(std::shared_ptr<t_vocab> expression_vocab);               \
+        ~NAME();                                                       \
+        t_tscalar operator()(t_parameter_list parameters);              \
+        std::shared_ptr<t_vocab> m_expression_vocab;                    \
+        t_tscalar m_sentinel;                                           \
+        t_tscalar m_rval;                                               \
+        t_tscalar m_none;                                               \
+    };                                                                  \
 
-    upper(std::shared_ptr<t_vocab> expression_vocab);
-    ~upper();
+// Place string literals into an intermediate vocab and return a scalar so
+// that they can be used in all scalar operations.
+STRING_FUNCTION_HEADER(intern)
 
-    t_tscalar operator()(t_parameter_list parameters);
+// Concat any number of columns and string literals together.
+STRING_FUNCTION_HEADER(concat)
 
-    std::shared_ptr<t_vocab> m_expression_vocab;
-    t_tscalar m_sentinel;
-    t_tscalar m_rval;
-    t_tscalar m_none;
-};
+// Uppercase a string, storing intermediates in `expression_vocab`
+STRING_FUNCTION_HEADER(upper)
+
+// Lowercase a string
+STRING_FUNCTION_HEADER(lower)
 
 // template <typename T>
 // struct lower : public exprtk::igeneric_function<T> {

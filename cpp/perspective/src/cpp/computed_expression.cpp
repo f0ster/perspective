@@ -23,8 +23,41 @@ t_computed_expression_parser::DATE_BUCKET_FN = computed_function::date_bucket();
 
 // As well as functions used for validation that have state but don't
 // need it to validate input types.
+computed_function::intern
+t_computed_expression_parser::INTERN_VALIDATOR_FN = computed_function::intern(nullptr);
+
+computed_function::concat
+t_computed_expression_parser::CONCAT_VALIDATOR_FN = computed_function::concat(nullptr);
+
 computed_function::upper
 t_computed_expression_parser::UPPER_VALIDATOR_FN = computed_function::upper(nullptr);
+
+computed_function::lower
+t_computed_expression_parser::LOWER_VALIDATOR_FN = computed_function::lower(nullptr);
+
+// Register functions in a centralized macro instead of copy-pasting the same
+// lines between compute/recompute
+#define REGISTER_COMPUTE_FUNCTIONS()                                                        \
+    computed_function::intern intern_fn = computed_function::intern(m_expression_vocab);    \
+    computed_function::concat concat_fn = computed_function::concat(m_expression_vocab);    \
+    computed_function::upper upper_fn = computed_function::upper(m_expression_vocab);       \
+    computed_function::lower lower_fn = computed_function::lower(m_expression_vocab);       \
+    sym_table.add_function("today", computed_function::today);                              \
+    sym_table.add_function("now", computed_function::now);                                  \
+    sym_table.add_function("date_bucket", t_computed_expression_parser::DATE_BUCKET_FN);    \
+    sym_table.add_function("intern", intern_fn);                                            \
+    sym_table.add_function("concat", concat_fn);                                            \
+    sym_table.add_function("upper", upper_fn);                                              \
+    sym_table.add_function("lower", lower_fn);                                              \
+
+#define REGISTER_VALIDATION_FUNCTIONS()                                                     \
+    sym_table.add_function("today", computed_function::today);                              \
+    sym_table.add_function("now", computed_function::now);                                  \
+    sym_table.add_function("date_bucket", t_computed_expression_parser::DATE_BUCKET_FN);    \
+    sym_table.add_function("intern", t_computed_expression_parser::INTERN_VALIDATOR_FN);    \
+    sym_table.add_function("concat", t_computed_expression_parser::CONCAT_VALIDATOR_FN);    \
+    sym_table.add_function("upper", t_computed_expression_parser::UPPER_VALIDATOR_FN);      \
+    sym_table.add_function("lower", t_computed_expression_parser::LOWER_VALIDATOR_FN);      \
 
 /******************************************************************************
  *
@@ -48,14 +81,7 @@ t_computed_expression::compute(
     auto start = std::chrono::high_resolution_clock::now(); 
     exprtk::symbol_table<t_tscalar> sym_table;
 
-    computed_function::upper upper_fn = computed_function::upper(m_expression_vocab);
-    // computed_function::lower<t_tscalar> lower_fn = computed_function::lower<t_tscalar>(vocab);
-
-    sym_table.add_function("today", computed_function::today);
-    sym_table.add_function("now", computed_function::now);
-    sym_table.add_function("date_bucket", t_computed_expression_parser::DATE_BUCKET_FN);
-    sym_table.add_function("upper", upper_fn);
-    // sym_table.add_function("lower", lower_fn);
+    REGISTER_COMPUTE_FUNCTIONS()
 
     exprtk::expression<t_tscalar> expr_definition;
     std::vector<std::pair<std::string, t_tscalar>> values;
@@ -162,15 +188,7 @@ t_computed_expression::recompute(
     const std::vector<t_rlookup>& changed_rows) const {
     exprtk::symbol_table<t_tscalar> sym_table;
 
-    // TODO make these member functions, with a set_vocab fn
-    computed_function::upper upper_fn = computed_function::upper(m_expression_vocab);
-    // computed_function::lower<t_tscalar> lower_fn = computed_function::lower<t_tscalar>(vocab);
-
-    sym_table.add_function("today", computed_function::today);
-    sym_table.add_function("now", computed_function::now);
-    sym_table.add_function("date_bucket", t_computed_expression_parser::DATE_BUCKET_FN);
-    sym_table.add_function("upper", upper_fn);
-    // sym_table.add_function("lower", lower_fn);
+    REGISTER_COMPUTE_FUNCTIONS()
 
     exprtk::expression<t_tscalar> expr_definition;
     std::vector<std::pair<std::string, t_tscalar>> values;
@@ -382,17 +400,10 @@ t_computed_expression_parser::precompute(
     std::shared_ptr<t_schema> schema
 ) {
     exprtk::symbol_table<t_tscalar> sym_table;
-
-    sym_table.add_function("today", computed_function::today);
-    sym_table.add_function("now", computed_function::now);
-    sym_table.add_function("date_bucket", t_computed_expression_parser::DATE_BUCKET_FN);
-    sym_table.add_function("upper", t_computed_expression_parser::UPPER_VALIDATOR_FN);
-    // sym_table.add_function("lower", lower_fn);
-
     exprtk::expression<t_tscalar> expr_definition;
 
-    // We aren't accessing values over multiple iterations, so we don't need
-    // to track the column name.
+    REGISTER_VALIDATION_FUNCTIONS()
+
     std::vector<t_tscalar> values;
 
     auto num_input_columns = column_ids.size();
@@ -408,7 +419,7 @@ t_computed_expression_parser::precompute(
         rval.m_type = schema->get_dtype(column_name);
 
         // Needs to be valid here, as invalid scalars will return DTYPE_NONE
-        // and all we care about is the dtype and not validity.
+        // which will break the assumptions of the type checker.
         rval.m_status = STATUS_VALID;
         values[cidx] = rval;
 
@@ -447,15 +458,9 @@ t_computed_expression_parser::get_dtype(
     exprtk::symbol_table<t_tscalar> sym_table;
     exprtk::expression<t_tscalar> expr_definition;
 
-    sym_table.add_function("today", computed_function::today);
-    sym_table.add_function("now", computed_function::now);
-    sym_table.add_function("date_bucket", t_computed_expression_parser::DATE_BUCKET_FN);
-    sym_table.add_function("upper", t_computed_expression_parser::UPPER_VALIDATOR_FN);
-    // sym_table.add_function("lower", lower_fn);
-
-    // We aren't accessing values over multiple iterations, so we don't need
-    // to track the column name.
     std::vector<t_tscalar> values;
+
+    REGISTER_VALIDATION_FUNCTIONS()
 
     auto num_input_columns = column_ids.size();
     values.resize(num_input_columns);
@@ -480,7 +485,7 @@ t_computed_expression_parser::get_dtype(
         rval.m_type = schema.get_dtype(column_name);
 
         // Needs to be valid here, as invalid scalars will return DTYPE_NONE
-        // and all we care about is the dtype and not validity.
+        // which will break the assumptions of the type checker.
         rval.m_status = STATUS_VALID;
         values[cidx] = rval;
 
