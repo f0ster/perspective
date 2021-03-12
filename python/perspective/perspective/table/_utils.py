@@ -13,6 +13,9 @@ from .libbinding import t_dtype
 
 EXPRESSION_COLUMN_NAME_REGEX = re.compile(r"\$'(.*?[^\\])'")
 STRING_LITERAL_REGEX = re.compile(r"'(.*?[^\\])'")
+DATE_BUCKET_LITERAL_REGEX = re.compile(
+    r"date_bucket\(.*?, (intern\(\'([smhDWMY])\'\))\)"
+)
 
 
 def _extract_type(type, typemap):
@@ -102,6 +105,18 @@ def _replace_expression_column_name(
     return column_name_map[column_name]
 
 
+def _replace_date_bucket_unit(match_obj):
+    """Replace the intern('unit') in `date_bucket()` with just the string
+    literal, because the unit determines the return type of the column and the
+    function would not be able to validate a unit if it was interned."""
+    full = match_obj.group(0)
+    interned = match_obj.group(1)
+    unit = match_obj.group(2)
+
+    # from "date_bucket(col, intern('unit'))" to "date_bucket(col, 'unit')"
+    return "{0}'{1}')".format(full[0 : full.index(interned)], unit)
+
+
 def _validate_expressions(expressions):
     """Given a list of string expressions, parse out column names and string
     literals using regex and return a list of lists that contain three items
@@ -132,9 +147,12 @@ def _validate_expressions(expressions):
         parsed = re.sub(EXPRESSION_COLUMN_NAME_REGEX, replacer_fn, expression)
         parsed = re.sub(
             STRING_LITERAL_REGEX,
-            lambda match: "intern({0})".format(match),
+            lambda match: "intern({0})".format(match.group(0)),
             parsed,
         )
+
+        # remove the `intern()` in date_bucket - TODO: this is messy
+        parsed = re.sub(DATE_BUCKET_LITERAL_REGEX, _replace_date_bucket_unit, parsed)
 
         validated_expressions.append([expression, parsed, column_id_map])
 

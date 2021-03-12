@@ -462,9 +462,6 @@ date_bucket::UNIT_MAP = {
     {"Y", t_date_bucket_unit::YEARS}
 };
 
-/**
- * @brief bucket(num, 10), bucket(date, 15, 'D')
- */
 date_bucket::date_bucket()
     : exprtk::igeneric_function<t_tscalar>("TS") {
 }
