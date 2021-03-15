@@ -11,7 +11,7 @@ from datetime import date, datetime
 from functools import partial
 from .libbinding import t_dtype
 
-EXPRESSION_COLUMN_NAME_REGEX = re.compile(r"\$'(.*?[^\\])'")
+EXPRESSION_COLUMN_NAME_REGEX = re.compile(r"\"(.*?[^\\])\"")
 STRING_LITERAL_REGEX = re.compile(r"'(.*?[^\\])'")
 DATE_BUCKET_LITERAL_REGEX = re.compile(
     r"date_bucket\(.*?, (intern\(\'([smhDWMY])\'\))\)"
@@ -130,7 +130,7 @@ def _validate_expressions(expressions):
     validated_expressions = []
 
     for expression in expressions:
-        if "$''" in expression:
+        if '""' in expression:
             raise ValueError("Cannot reference empty column in expression!")
 
         column_id_map = {}

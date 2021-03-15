@@ -310,10 +310,10 @@ export default function(Module) {
      * @example
      * // Create a view with expressions
      * const view = table.view({
-     *      expressions: ["$'x' + $'y'"]
+     *      expressions: ['"x" + "y" - 100']
      * });
      *
-     * await view.expression_schema(); // {"$'x' + $'y'": "float"}
+     * await view.expression_schema(); // {'"x" + "y" - 100': "float"}
      *
      * @async
      *
@@ -1227,7 +1227,7 @@ export default function(Module) {
      * expression:
      *
      * v[0]: the expression string as typed by the user
-     * v[1]: the expression string with $'column' replaced with col0, col1,
+     * v[1]: the expression string with "column" replaced with col0, col1,
      *  etc., which allows for faster lookup of column values.
      * v[2]: a map of column keys (col0, col1) to actual column names,
      *  which will be used in the engine to look up column values.
@@ -1239,8 +1239,9 @@ export default function(Module) {
         let validated_expressions = [];
 
         for (let expression_string of expressions) {
-            if (expression_string.includes("$''")) {
-                throw new Error("Expression cannot reference empty column $''!");
+            if (expression_string.includes('""')) {
+                console.error(`Skipping expression '${expression_string}', as it cannot reference an empty column!`);
+                continue;
             }
 
             // Map of column names to column IDs, so that we generate
@@ -1255,11 +1256,11 @@ export default function(Module) {
             // TODO: probably validate columns here as well? although
             // if the front-end validates through get_expression_schema
             // then we probably can just take the input as is.
-            let parsed_expression_string = expression_string.replace(/\$'(.*?[^\\])'/g, (_, cname) => {
-                // If the column name contains escaped single quotes, remove
-                // them assuming they are escaping a single quote and not the
-                // literal string "\'", in which case...?
-                cname = cname.replace(/\\'/g, "'");
+            let parsed_expression_string = expression_string.replace(/\"(.*?[^\\])\"/g, (_, cname) => {
+                // If the column name contains escaped double quotes, replace
+                // them and assume that they escape one double quote. If there
+                // are multiple double quotes being escaped, i.e. \""...well?
+                cname = cname.replace(/\\"/g, '"');
 
                 if (column_name_map[cname] === undefined) {
                     let column_id = `COLUMN${running_cidx}`;
