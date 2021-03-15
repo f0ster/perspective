@@ -250,16 +250,17 @@ t_computed_expression::recompute(
     for (t_uindex idx = 0; idx < num_rows; ++idx) {
         bool row_already_exists = false;
 
-        // TODO: re-figure out the reason we need `idx` and `ridx` here -
-        // I think ridx is used to get the row from the gnode master table,
-        // whereas idx is the index into the flattened table.
+        // if changed_rows is not empty, ridx will point to a row index in
+        // the gnode state master table, whereas idx will always point to
+        // the row index in the flattened table containing the data from
+        // this update/process cycle.
         t_uindex ridx = idx;
 
         if (changed_rows.size() > 0) {
             ridx = changed_rows[idx].m_idx;
             row_already_exists = changed_rows[idx].m_exists;
         }
-
+    
         bool skip_row = false;
 
         for (t_uindex cidx = 0; cidx < num_input_columns; ++cidx) {
@@ -299,7 +300,9 @@ t_computed_expression::recompute(
                     skip_row = true;
                     break;  
                 } else {
-                    // Use the value in the master table to compute.
+                    // Get the value from the master table using `ridx`,
+                    // which points to a row in the master table that is
+                    // being overwritten in this partial update.
                     arg = gstate_table_columns[column_id]->get_scalar(ridx);
                 }
             }
@@ -346,7 +349,7 @@ t_computed_expression::recompute(
             case DTYPE_FLOAT32:
             case DTYPE_TIME:
             case DTYPE_DATE: {
-                output_column->set_scalar(ridx, value);
+                output_column->set_scalar(idx, value);
             } break;
             default: {
                 std::stringstream ss;
