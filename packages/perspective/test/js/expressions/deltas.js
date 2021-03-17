@@ -17,32 +17,26 @@ const match_delta = async function(perspective, delta, expected) {
 };
 
 /**
- * Tests the correctness of updates on Tables with computed columns created
+ * Tests the correctness of updates on Tables with expression columns created
  * through `View` and deltas created through `on_update`.
  */
 module.exports = perspective => {
-    describe("Computed column update deltas", function() {
-        describe("0-sided computed column deltas", function() {
-            it("Returns appended rows for normal and computed columns", async function(done) {
+    describe("Expression column update deltas", function() {
+        describe("0-sided expression column deltas", function() {
+            it("Returns appended rows for normal and expression columns", async function(done) {
                 const table = await perspective.table({
                     x: [1, 2, 3, 4],
                     y: ["A", "B", "C", "D"]
                 });
                 const view = await table.view({
-                    computed_columns: [
-                        {
-                            column: "lowercase",
-                            computed_function_name: "Lowercase",
-                            inputs: ["y"]
-                        }
-                    ]
+                    expressions: ['lower("y")', '-"x"']
                 });
 
                 view.on_update(
                     async function(updated) {
                         const expected = [
-                            {x: 1, y: "HELLO", lowercase: "hello"},
-                            {x: 3, y: "WORLD", lowercase: "world"}
+                            {x: 1, y: "HELLO", 'lower("y")': "hello", '-"x"': -1},
+                            {x: 3, y: "WORLD", 'lower("y")': "world", '-"x"': -3}
                         ];
                         await match_delta(perspective, updated.delta, expected);
                         await view.delete();
@@ -55,28 +49,22 @@ module.exports = perspective => {
                 table.update({x: [1, 3], y: ["HELLO", "WORLD"]});
             });
 
-            it("Returns appended rows for normal and computed columns from schema", async function(done) {
+            it("Returns appended rows for normal and expression columns from schema", async function(done) {
                 const table = await perspective.table({
                     x: "integer",
                     y: "string"
                 });
                 const view = await table.view({
-                    computed_columns: [
-                        {
-                            column: "uppercase",
-                            computed_function_name: "Uppercase",
-                            inputs: ["y"]
-                        }
-                    ]
+                    expressions: ['upper("y")']
                 });
 
                 view.on_update(
                     async function(updated) {
                         const expected = [
-                            {x: 1, y: "a", uppercase: "A"},
-                            {x: 2, y: "b", uppercase: "B"},
-                            {x: 3, y: "c", uppercase: "C"},
-                            {x: 4, y: "d", uppercase: "D"}
+                            {x: 1, y: "a", 'upper("y")': "A"},
+                            {x: 2, y: "b", 'upper("y")': "B"},
+                            {x: 3, y: "c", 'upper("y")': "C"},
+                            {x: 4, y: "d", 'upper("y")': "D"}
                         ];
                         await match_delta(perspective, updated.delta, expected);
                         await view.delete();
@@ -92,7 +80,7 @@ module.exports = perspective => {
                 });
             });
 
-            it("Returns partially updated rows for normal and computed columns", async function(done) {
+            it("Returns partially updated rows for normal and expression columns", async function(done) {
                 const table = await perspective.table(
                     {
                         x: [1, 2, 3, 4],
@@ -101,26 +89,20 @@ module.exports = perspective => {
                     {index: "x"}
                 );
                 const view = await table.view({
-                    computed_columns: [
-                        {
-                            column: "lowercase",
-                            computed_function_name: "Lowercase",
-                            inputs: ["y"]
-                        }
-                    ]
+                    expressions: ['lower("y")']
                 });
 
                 view.on_update(
                     async function(updated) {
                         const full = await view.to_columns();
                         const expected = [
-                            {x: 1, y: "HELLO", lowercase: "hello"},
-                            {x: 3, y: "WORLD", lowercase: "world"}
+                            {x: 1, y: "HELLO", 'lower("y")': "hello"},
+                            {x: 3, y: "WORLD", 'lower("y")': "world"}
                         ];
                         expect(full).toEqual({
                             x: [1, 2, 3, 4],
                             y: ["HELLO", "B", "WORLD", "D"],
-                            lowercase: ["hello", "b", "world", "d"]
+                            'lower("y")': ["hello", "b", "world", "d"]
                         });
                         await match_delta(perspective, updated.delta, expected);
                         await view.delete();
@@ -133,33 +115,27 @@ module.exports = perspective => {
                 table.update({x: [1, 3], y: ["HELLO", "WORLD"]});
             });
 
-            it("Returns appended rows with missing columns for normal and computed columns", async function(done) {
+            it("Returns appended rows with missing columns for normal and expression columns", async function(done) {
                 const self = this;
                 const table = await perspective.table({
                     x: [1, 2, 3, 4],
                     y: ["A", "B", "C", "D"]
                 });
                 self.view = await table.view({
-                    computed_columns: [
-                        {
-                            column: "lowercase",
-                            computed_function_name: "Lowercase",
-                            inputs: ["y"]
-                        }
-                    ]
+                    expressions: ['lower("y")']
                 });
 
                 self.view.on_update(
                     async function(updated) {
                         const full = await self.view.to_columns();
                         const expected = [
-                            {x: 1, y: null, lowercase: null},
-                            {x: 3, y: null, lowercase: null}
+                            {x: 1, y: null, 'lower("y")': null},
+                            {x: 3, y: null, 'lower("y")': null}
                         ];
                         expect(full).toEqual({
                             x: [1, 2, 3, 4, 1, 3],
                             y: ["A", "B", "C", "D", null, null],
-                            lowercase: ["a", "b", "c", "d", null, null]
+                            'lower("y")': ["a", "b", "c", "d", null, null]
                         });
                         await match_delta(perspective, updated.delta, expected);
                         await self.view.delete();
@@ -173,29 +149,51 @@ module.exports = perspective => {
             });
         });
 
-        describe("1-sided computed column deltas", function() {
-            it("Returns appended rows for normal and computed columns, 1-sided", async function(done) {
+        describe("1-sided expression column deltas", function() {
+            it("Returns appended rows for normal and expression columns, 1-sided", async function(done) {
                 const table = await perspective.table({
                     x: [1, 2, 3, 4],
                     y: ["A", "B", "C", "D"]
                 });
                 const view = await table.view({
-                    row_pivots: ["lowercase"],
-                    computed_columns: [
-                        {
-                            column: "lowercase",
-                            computed_function_name: "Lowercase",
-                            inputs: ["y"]
-                        }
-                    ]
+                    row_pivots: ['lower("y")'],
+                    expressions: ['lower("y")']
                 });
 
                 view.on_update(
                     async function(updated) {
                         const expected = [
-                            {lowercase: 6, x: 14, y: 6},
-                            {x: 1, y: 1, lowercase: 1},
-                            {x: 3, y: 1, lowercase: 1}
+                            {x: 14, y: 6, 'lower("y")': 6},
+                            {x: 1, y: 1, 'lower("y")': 1},
+                            {x: 3, y: 1, 'lower("y")': 1}
+                        ];
+                        await match_delta(perspective, updated.delta, expected);
+                        await view.delete();
+                        await table.delete();
+                        done();
+                    },
+                    {mode: "row"}
+                );
+
+                table.update({x: [1, 3], y: ["HELLO", "WORLD"]});
+            });
+
+            it("Returns appended rows for normal and expression columns, 1-sided", async function(done) {
+                const table = await perspective.table({
+                    x: [1, 2, 3, 4],
+                    y: ["A", "B", "C", "D"]
+                });
+                const view = await table.view({
+                    row_pivots: ['lower("y")'],
+                    expressions: ['lower("y")']
+                });
+
+                view.on_update(
+                    async function(updated) {
+                        const expected = [
+                            {x: 14, y: 6, 'lower("y")': 6},
+                            {x: 1, y: 1, 'lower("y")': 1},
+                            {x: 3, y: 1, 'lower("y")': 1}
                         ];
                         await match_delta(perspective, updated.delta, expected);
                         await view.delete();
@@ -209,42 +207,125 @@ module.exports = perspective => {
             });
         });
 
-        describe("2-sided computed column deltas", function() {});
-
-        describe("0-sided computed column deltas with multiple views", function() {
-            it("`on_update` on a view with computed column should not contain computed delta when only non-source columns were appended", async function(done) {
+        describe("2-sided expression column deltas", function() {
+            it("Returns appended rows for normal and expression columns, 2-sided", async function(done) {
                 const table = await perspective.table({
                     x: [1, 2, 3, 4],
                     y: ["A", "B", "C", "D"]
                 });
                 const view = await table.view({
-                    computed_columns: [
-                        {
-                            column: "lowercase",
-                            computed_function_name: "Lowercase",
-                            inputs: ["y"]
-                        }
-                    ]
+                    aggregates: {
+                        'lower("y")': "last"
+                    },
+                    row_pivots: ['lower("y")'],
+                    column_pivots: ["y"],
+                    expressions: ['lower("y")']
+                });
+
+                view.on_update(
+                    async function(updated) {
+                        const expected = [
+                            {
+                                'A|lower("y")': "a",
+                                "A|x": 1,
+                                "A|y": 1,
+                                'B|lower("y")': "b",
+                                "B|x": 2,
+                                "B|y": 1,
+                                'C|lower("y")': "c",
+                                "C|x": 3,
+                                "C|y": 1,
+                                'D|lower("y")': "d",
+                                "D|x": 4,
+                                "D|y": 1,
+                                'HELLO|lower("y")': "hello",
+                                "HELLO|x": 1,
+                                "HELLO|y": 1,
+                                'WORLD|lower("y")': "world",
+                                "WORLD|x": 3,
+                                "WORLD|y": 1
+                            },
+                            {
+                                'A|lower("y")': null,
+                                "A|x": null,
+                                "A|y": null,
+                                'B|lower("y")': null,
+                                "B|x": null,
+                                "B|y": null,
+                                'C|lower("y")': null,
+                                "C|x": null,
+                                "C|y": null,
+                                'D|lower("y")': null,
+                                "D|x": null,
+                                "D|y": null,
+                                'HELLO|lower("y")': "hello",
+                                "HELLO|x": 1,
+                                "HELLO|y": 1,
+                                'WORLD|lower("y")': null,
+                                "WORLD|x": null,
+                                "WORLD|y": null
+                            },
+                            {
+                                'A|lower("y")': null,
+                                "A|x": null,
+                                "A|y": null,
+                                'B|lower("y")': null,
+                                "B|x": null,
+                                "B|y": null,
+                                'C|lower("y")': null,
+                                "C|x": null,
+                                "C|y": null,
+                                'D|lower("y")': null,
+                                "D|x": null,
+                                "D|y": null,
+                                'HELLO|lower("y")': null,
+                                "HELLO|x": null,
+                                "HELLO|y": null,
+                                'WORLD|lower("y")': "world",
+                                "WORLD|x": 3,
+                                "WORLD|y": 1
+                            }
+                        ];
+                        await match_delta(perspective, updated.delta, expected);
+                        await view.delete();
+                        await table.delete();
+                        done();
+                    },
+                    {mode: "row"}
+                );
+
+                table.update({x: [1, 3], y: ["HELLO", "WORLD"]});
+            });
+        });
+
+        describe("0-sided expression column deltas with multiple views", function() {
+            it("`on_update` on a view with expression column should contain expression delta when columns are appended", async function(done) {
+                const table = await perspective.table({
+                    x: [1, 2, 3, 4],
+                    y: ["A", "B", "C", "D"]
+                });
+                const view = await table.view({
+                    expressions: ['lower("y")']
                 });
 
                 const pre_update = await view.to_columns();
                 expect(pre_update).toEqual({
                     x: [1, 2, 3, 4],
                     y: ["A", "B", "C", "D"],
-                    lowercase: ["a", "b", "c", "d"]
+                    'lower("y")': ["a", "b", "c", "d"]
                 });
 
                 view.on_update(
                     async function(updated) {
                         const expected = [
-                            {x: 1, y: null, lowercase: null},
-                            {x: 3, y: null, lowercase: null}
+                            {x: 1, y: null, 'lower("y")': null},
+                            {x: 3, y: null, 'lower("y")': null}
                         ];
                         const full = await view.to_columns();
                         expect(full).toEqual({
                             x: [1, 2, 3, 4, 1, 3],
                             y: ["A", "B", "C", "D", null, null],
-                            lowercase: ["a", "b", "c", "d", null, null]
+                            'lower("y")': ["a", "b", "c", "d", null, null]
                         });
                         await match_delta(perspective, updated.delta, expected);
                         await view.delete();
@@ -257,7 +338,50 @@ module.exports = perspective => {
                 table.update({x: [1, 3]});
             });
 
-            it("`on_update` on different views with different computed columns should only be notified of their columns", async function(done) {
+            it("`on_update` on a view with expression column should contain expression delta when columns are updated", async function(done) {
+                const table = await perspective.table(
+                    {
+                        x: [1, 2, 3, 4],
+                        y: ["A", "B", "C", "D"]
+                    },
+                    {index: "x"}
+                );
+                const view = await table.view({
+                    expressions: ['lower("y")']
+                });
+
+                const pre_update = await view.to_columns();
+
+                expect(pre_update).toEqual({
+                    x: [1, 2, 3, 4],
+                    y: ["A", "B", "C", "D"],
+                    'lower("y")': ["a", "b", "c", "d"]
+                });
+
+                view.on_update(
+                    async function(updated) {
+                        const expected = [
+                            {x: 1, y: "ABCD", 'lower("y")': "abcd"},
+                            {x: 3, y: null, 'lower("y")': null}
+                        ];
+                        const full = await view.to_columns();
+                        expect(full).toEqual({
+                            x: [1, 2, 3, 4],
+                            y: ["ABCD", "B", null, "D"],
+                            'lower("y")': ["abcd", "b", null, "d"]
+                        });
+                        await match_delta(perspective, updated.delta, expected);
+                        await view.delete();
+                        await table.delete();
+                        done();
+                    },
+                    {mode: "row"}
+                );
+
+                table.update({x: [1, 3], y: ["ABCD", null]});
+            });
+
+            it("`on_update` on different views with different expression columns should only be notified of their columns", async function(done) {
                 const table = await perspective.table(
                     {
                         x: [1, 2, 3, 4],
@@ -269,36 +393,24 @@ module.exports = perspective => {
                 );
 
                 const view = await table.view({
-                    computed_columns: [
-                        {
-                            column: "lowercase",
-                            computed_function_name: "Lowercase",
-                            inputs: ["y"]
-                        }
-                    ]
+                    expressions: ['lower("y")']
                 });
 
                 const view2 = await table.view({
-                    computed_columns: [
-                        {
-                            column: "length",
-                            computed_function_name: "length",
-                            inputs: ["y"]
-                        }
-                    ]
+                    expressions: ['-"x"']
                 });
 
                 view.on_update(
                     async function(updated) {
                         const expected = [
-                            {x: 1, y: "HELLO", lowercase: "hello"},
-                            {x: 3, y: "WORLD", lowercase: "world"}
+                            {x: 1, y: "HELLO", 'lower("y")': "hello"},
+                            {x: 3, y: "WORLD", 'lower("y")': "world"}
                         ];
                         const full = await view.to_columns();
                         expect(full).toEqual({
                             x: [1, 2, 3, 4],
                             y: ["HELLO", "B", "WORLD", "D"],
-                            lowercase: ["hello", "b", "world", "d"]
+                            'lower("y")': ["hello", "b", "world", "d"]
                         });
                         await match_delta(perspective, updated.delta, expected);
                         await view.delete();
@@ -309,14 +421,14 @@ module.exports = perspective => {
                 view2.on_update(
                     async function(updated) {
                         const expected = [
-                            {x: 1, y: "HELLO", length: 5},
-                            {x: 3, y: "WORLD", length: 5}
+                            {x: 1, y: "HELLO", '-"x"': -1},
+                            {x: 3, y: "WORLD", '-"x"': -3}
                         ];
                         const full = await view2.to_columns();
                         expect(full).toEqual({
                             x: [1, 2, 3, 4],
                             y: ["HELLO", "B", "WORLD", "D"],
-                            length: [5, 1, 5, 1]
+                            '-"x"': [-1, -2, -3, -4]
                         });
                         await match_delta(perspective, updated.delta, expected);
                         await view2.delete();
@@ -329,7 +441,7 @@ module.exports = perspective => {
                 table.update({x: [1, 3], y: ["HELLO", "WORLD"]});
             });
 
-            it("`on_update` on view without computed column should not be notified of computed column", async function(done) {
+            it("`on_update` on view without expression column should not be notified of expression column", async function(done) {
                 const table = await perspective.table({
                     x: [1, 2, 3, 4],
                     y: ["A", "B", "C", "D"]
@@ -337,20 +449,13 @@ module.exports = perspective => {
                 const view = await table.view();
 
                 const view2 = await table.view({
-                    computed_columns: [
-                        {
-                            column: "lowercase",
-                            computed_function_name: "Lowercase",
-                            inputs: ["y"]
-                        }
-                    ]
+                    expressions: ['lower("y")']
                 });
 
-                const computed_result = await view2.to_columns();
-                expect(computed_result).toEqual({
+                expect(await view2.to_columns()).toEqual({
                     x: [1, 2, 3, 4],
                     y: ["A", "B", "C", "D"],
-                    lowercase: ["a", "b", "c", "d"]
+                    'lower("y")': ["a", "b", "c", "d"]
                 });
 
                 view.on_update(

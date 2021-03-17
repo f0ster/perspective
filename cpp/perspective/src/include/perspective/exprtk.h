@@ -153,7 +153,7 @@ inline bool string_to_real(Iterator& itr_external, const Iterator end, t_tscalar
 } // end namespace exprtk
 
 // exprtk needs to be imported after the type tags have been declared.
-// #define exprtk_enable_debugging
+#define exprtk_enable_debugging
 #define exprtk_disable_return_statement
 #define exprtk_disable_rtl_io_file
 #include <exprtk.hpp>

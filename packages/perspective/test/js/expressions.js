@@ -8,19 +8,19 @@
  */
 
 const functionality = require("./expressions/functionality");
-// const numeric = require("./expressions/numeric");
+const numeric = require("./expressions/numeric");
 // const string = require("./expressions/string");
 // const datetime = require("./expressions/datetime");
 const updates = require("./expressions/updates");
-// const deltas = require("./expressions/deltas");
+const deltas = require("./expressions/deltas");
 // const invariant = require("./expressions/invariant");
 
 module.exports = perspective => {
     functionality(perspective);
-    // numeric(perspective);
+    numeric(perspective);
     // string(perspective);
     // datetime(perspective);
     updates(perspective);
-    // deltas(perspective);
+    deltas(perspective);
     // invariant(perspective);
 };
