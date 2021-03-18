@@ -57,7 +57,7 @@ function calc_binary(operator, left, right) {
         case "%":
             return left % right;
         case "^":
-            return left ^ right;
+            return Math.pow(left, right);
         default:
             throw new Error("Unknown operator");
     }
@@ -120,7 +120,7 @@ module.exports = perspective => {
             });
 
             describe("binary", function() {
-                it("add asds", async function() {
+                it("add", async function() {
                     const table = await perspective.table(common.all_types_arrow.slice());
                     const expressions = generate_binary_operations("+");
                     const view = await table.view({
@@ -134,7 +134,6 @@ module.exports = perspective => {
                     }
 
                     const result = await view.to_columns();
-                    console.log(result);
                     validate_binary_operations(result, expressions, "+");
                     await view.delete();
                     await table.delete();
@@ -178,23 +177,9 @@ module.exports = perspective => {
                     await table.delete();
                 });
 
-                it("divide asd", async function() {
+                it("divide", async function() {
                     const table = await perspective.table(common.all_types_arrow.slice());
-                    const expressions = [];
-
-                    // just divide the ints by themselves
-                    for (const expr of NUMERIC_TYPES.slice(0, 7)) {
-                        expressions.push(`"${expr}" / "${expr}"`);
-                    }
-
-                    // divide floats by all types
-                    for (const expr of NUMERIC_TYPES.slice(7)) {
-                        for (let i = 0; i < NUMERIC_TYPES.length; i++) {
-                            expressions.push(`"${expr}" / "${NUMERIC_TYPES[i]}"`);
-                        }
-                    }
-
-                    console.log(expressions);
+                    const expressions = generate_binary_operations("/");
 
                     const view = await table.view({
                         expressions
@@ -207,7 +192,6 @@ module.exports = perspective => {
                     }
 
                     const result = await view.to_columns();
-                    console.log(result);
                     validate_binary_operations(result, expressions, "/");
                     await view.delete();
                     await table.delete();
@@ -215,22 +199,7 @@ module.exports = perspective => {
 
                 it("modulus", async function() {
                     const table = await perspective.table(common.all_types_arrow.slice());
-                    const expressions = [];
-
-                    // just modulo the ints by themselves
-                    for (const expr of NUMERIC_TYPES.slice(0, 7)) {
-                        expressions.push(`"${expr}" / "${expr}"`);
-                    }
-
-                    // modulo floats by all types
-                    for (const expr of NUMERIC_TYPES.slice(7)) {
-                        for (let i = 0; i < NUMERIC_TYPES.length; i++) {
-                            expressions.push(`"${expr}" / "${NUMERIC_TYPES[i]}"`);
-                        }
-                    }
-
-                    const v = await table.view();
-                    console.log(await v.to_columns());
+                    const expressions = generate_binary_operations("%");
 
                     const view = await table.view({
                         expressions
