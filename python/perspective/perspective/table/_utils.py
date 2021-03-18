@@ -100,11 +100,11 @@ def _replace_expression_column_name(
     # as escapes, users need to write two backslashes in order to properly
     # escape single quotes - i.e. "here\\'s an apostrophe".
     if column_name not in column_name_map:
-        column_id = "COLUMN{0}".format(running_cidx)
+        column_id = "COLUMN{0}".format(running_cidx[0])
         column_name_map[column_name] = column_id
         column_id_map[column_id] = column_name
 
-    running_cidx += 1
+    running_cidx[0] += 1
 
     return column_name_map[column_name]
 
@@ -139,7 +139,10 @@ def _validate_expressions(expressions):
 
         column_id_map = {}
         column_name_map = {}
-        running_cidx = 0
+
+        # we need to be able to modify the running_cidx inside of every call to
+        # replacer_fn - must pass by reference unfortunately
+        running_cidx = [0]
 
         replacer_fn = partial(
             _replace_expression_column_name,

@@ -120,7 +120,7 @@ module.exports = perspective => {
             });
 
             describe("binary", function() {
-                it("add", async function() {
+                it("add asds", async function() {
                     const table = await perspective.table(common.all_types_arrow.slice());
                     const expressions = generate_binary_operations("+");
                     const view = await table.view({
@@ -134,6 +134,7 @@ module.exports = perspective => {
                     }
 
                     const result = await view.to_columns();
+                    console.log(result);
                     validate_binary_operations(result, expressions, "+");
                     await view.delete();
                     await table.delete();

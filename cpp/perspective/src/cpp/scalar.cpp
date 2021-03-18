@@ -29,43 +29,48 @@ namespace perspective {
 #define BINARY_OPERATOR_INNER(FIELD, OP) \
     switch (other.m_type) { \
         case DTYPE_INT64: { \
-            rval.set(m_data.FIELD OP other.m_data.m_int64); \
+            rval.set(static_cast<double>(m_data.FIELD OP other.m_data.m_int64)); \
         } break; \
         case DTYPE_INT32: { \
-            rval.set(m_data.FIELD OP other.m_data.m_int32); \
+            rval.set(static_cast<double>(m_data.FIELD OP other.m_data.m_int32)); \
         } break; \
         case DTYPE_INT16: { \
-            rval.set(m_data.FIELD OP other.m_data.m_int16); \
+            rval.set(static_cast<double>(m_data.FIELD OP other.m_data.m_int16)); \
         } break; \
         case DTYPE_INT8: { \
-            rval.set(m_data.FIELD OP other.m_data.m_int8); \
+            rval.set(static_cast<double>(m_data.FIELD OP other.m_data.m_int8)); \
         } break; \
         case DTYPE_UINT64: { \
-            rval.set(m_data.FIELD OP other.m_data.m_uint64); \
+            rval.set(static_cast<double>(m_data.FIELD OP other.m_data.m_uint64)); \
         } break; \
         case DTYPE_UINT32: { \
-            rval.set(m_data.FIELD OP other.m_data.m_uint32); \
+            rval.set(static_cast<double>(m_data.FIELD OP other.m_data.m_uint32)); \
         } break; \
         case DTYPE_UINT16: { \
-            rval.set(m_data.FIELD OP other.m_data.m_uint16); \
+            rval.set(static_cast<double>(m_data.FIELD OP other.m_data.m_uint16)); \
         } break; \
         case DTYPE_UINT8: { \
-            rval.set(m_data.FIELD OP other.m_data.m_uint8); \
+            rval.set(static_cast<double>(m_data.FIELD OP other.m_data.m_uint8)); \
         } break; \
         case DTYPE_FLOAT64: { \
-            rval.set(m_data.FIELD OP other.m_data.m_float64); \
+            rval.set(static_cast<double>(m_data.FIELD OP other.m_data.m_float64)); \
         } break; \
         case DTYPE_FLOAT32: { \
-            rval.set(m_data.FIELD OP other.m_data.m_float32); \
+            rval.set(static_cast<double>(m_data.FIELD OP other.m_data.m_float32)); \
         } break; \
         default: return mknone(); \
     } \
 
 #define BINARY_OPERATOR_BODY(OP) \
-    if (!other.is_valid() || !is_valid() || !is_numeric() || !other.is_numeric()) return mknone(); \
-    t_tscalar rval; \
-    rval.clear(); \
-    rval.m_type = m_type; \
+    t_tscalar rval;                                 \
+    rval.clear();                                   \
+    rval.m_type = DTYPE_FLOAT64;                    \
+    if (!is_numeric() || !other.is_numeric()) {     \
+        rval.m_status = STATUS_CLEAR;               \
+    }                                               \
+    if (!other.is_valid() || !is_valid()) {         \
+        return rval;                                \
+    }                                               \
     switch (m_type) { \
         case DTYPE_INT64: { \
             BINARY_OPERATOR_INNER(m_int64, OP) \
@@ -173,7 +178,13 @@ t_tscalar::operator+() const {
     rval.clear();
     rval.m_type = m_type;
 
-    if (!is_valid() || !is_numeric()) return mknone();
+    if (!is_numeric()) {
+        rval.m_status = STATUS_CLEAR;
+    }
+
+    if (!is_valid()) {
+        return rval;
+    }
 
     switch (m_type) { 
         case DTYPE_INT64: {
@@ -218,10 +229,13 @@ t_tscalar::operator-() const {
     rval.clear();
     rval.m_type = m_type;
 
-    // TODO: how do we want to handle this - do we want these functions to be
-    // even able to return a none type? What is the behavior for all functions
-    // when dealing with nones?
-    if (!is_valid() || m_type == DTYPE_NONE) return mknone();
+    if (!is_numeric()) {
+        rval.m_status = STATUS_CLEAR;
+    }
+
+    if (!is_valid()) {
+        return rval;
+    }
 
     switch (m_type) { 
         case DTYPE_INT64: {
@@ -277,377 +291,375 @@ t_tscalar::operator*(const t_tscalar& other) const {
 
 t_tscalar
 t_tscalar::operator/(const t_tscalar& other) const {
-    // TODO - check whether we are trying to div by 0
     BINARY_OPERATOR_BODY(/)
 }
 
 t_tscalar
 t_tscalar::operator%(const t_tscalar& other) const {
-    // TODO - check whether we are trying to % by 0
-    // TODO - implement inert scalar, which is a flag we can use to
-    // decide whether to just type check or whether to perform the operation.
-    // by setting the inert flag during precompute etc. we can separate out
-    // the typecheck and calculation phases and make it easier - and also
-    // not rely on undefined behavior or reading into undefined/unset
-    // fields on the scalar's data param.
-    if (!other.is_valid() || !is_valid() || !is_numeric()) return mknone();
-    
     t_tscalar rval;
     rval.clear();
-    rval.m_type = m_type;
+    rval.m_type = DTYPE_FLOAT64;
+
+    if (!is_numeric() || !other.is_numeric()) {
+        rval.m_status = STATUS_CLEAR;
+    }
+
+    if (!is_valid() || !other.is_valid()) {
+        return rval;
+    }
 
     switch (m_type) {
         case DTYPE_INT64: {
             switch (other.m_type) { 
                 case DTYPE_INT64: {
-                    rval.set(m_data.m_int64 % other.m_data.m_int64);
+                    rval.set(static_cast<double>(m_data.m_int64 % other.m_data.m_int64));
                 } break;
                 case DTYPE_INT32: {
-                    rval.set(m_data.m_int64 % other.m_data.m_int32);
+                    rval.set(static_cast<double>(m_data.m_int64 % other.m_data.m_int32));
                 } break;
                 case DTYPE_INT16: {
-                    rval.set(m_data.m_int64 % other.m_data.m_int16);
+                    rval.set(static_cast<double>(m_data.m_int64 % other.m_data.m_int16));
                 } break;
                 case DTYPE_INT8: {
-                    rval.set(m_data.m_int64 % other.m_data.m_int8);
+                    rval.set(static_cast<double>(m_data.m_int64 % other.m_data.m_int8));
                 } break;
                 case DTYPE_UINT64: {
-                    rval.set(m_data.m_int64 % other.m_data.m_uint64);
+                    rval.set(static_cast<double>(m_data.m_int64 % other.m_data.m_uint64));
                 } break;
                 case DTYPE_UINT32: {
-                    rval.set(m_data.m_int64 % other.m_data.m_uint32);
+                    rval.set(static_cast<double>(m_data.m_int64 % other.m_data.m_uint32));
                 } break;
                 case DTYPE_UINT16: {
-                    rval.set(m_data.m_int64 % other.m_data.m_uint16);
+                    rval.set(static_cast<double>(m_data.m_int64 % other.m_data.m_uint16));
                 } break;
                 case DTYPE_UINT8: {
-                    rval.set(m_data.m_int64 % other.m_data.m_uint8);
+                    rval.set(static_cast<double>(m_data.m_int64 % other.m_data.m_uint8));
                 } break;
                 case DTYPE_FLOAT64: {
-                    rval.set(fmod(m_data.m_int64, other.m_data.m_float64));
+                    rval.set(static_cast<double>(fmod(m_data.m_int64, other.m_data.m_float64)));
                 } break;
                 case DTYPE_FLOAT32: {
-                    rval.set(fmod(m_data.m_int64, other.m_data.m_float32));
+                    rval.set(static_cast<double>(fmod(m_data.m_int64, other.m_data.m_float32)));
                 } break;
-                default: return mknone();
+                default: return rval;
             }
         } break;
         case DTYPE_INT32: {
             switch (other.m_type) { 
                 case DTYPE_INT64: {
-                    rval.set(m_data.m_int32 % other.m_data.m_int64);
+                    rval.set(static_cast<double>(m_data.m_int32 % other.m_data.m_int64));
                 } break;
                 case DTYPE_INT32: {
-                    rval.set(m_data.m_int32 % other.m_data.m_int32);
+                    rval.set(static_cast<double>(m_data.m_int32 % other.m_data.m_int32));
                 } break;
                 case DTYPE_INT16: {
-                    rval.set(m_data.m_int32 % other.m_data.m_int16);
+                    rval.set(static_cast<double>(m_data.m_int32 % other.m_data.m_int16));
                 } break;
                 case DTYPE_INT8: {
-                    rval.set(m_data.m_int32 % other.m_data.m_int8);
+                    rval.set(static_cast<double>(m_data.m_int32 % other.m_data.m_int8));
                 } break;
                 case DTYPE_UINT64: {
-                    rval.set(m_data.m_int32 % other.m_data.m_uint64);
+                    rval.set(static_cast<double>(m_data.m_int32 % other.m_data.m_uint64));
                 } break;
                 case DTYPE_UINT32: {
-                    rval.set(m_data.m_int32 % other.m_data.m_uint32);
+                    rval.set(static_cast<double>(m_data.m_int32 % other.m_data.m_uint32));
                 } break;
                 case DTYPE_UINT16: {
-                    rval.set(m_data.m_int32 % other.m_data.m_uint16);
+                    rval.set(static_cast<double>(m_data.m_int32 % other.m_data.m_uint16));
                 } break;
                 case DTYPE_UINT8: {
-                    rval.set(m_data.m_int32 % other.m_data.m_uint8);
+                    rval.set(static_cast<double>(m_data.m_int32 % other.m_data.m_uint8));
                 } break;
                 case DTYPE_FLOAT64: {
-                    rval.set(fmod(m_data.m_int32, other.m_data.m_float64));
+                    rval.set(static_cast<double>(fmod(m_data.m_int32, other.m_data.m_float64)));
                 } break;
                 case DTYPE_FLOAT32: {
-                    rval.set(fmod(m_data.m_int32, other.m_data.m_float32));
+                    rval.set(static_cast<double>(fmod(m_data.m_int32, other.m_data.m_float32)));
                 } break;
-                default: return mknone();
+                default: return rval;
             }
         } break;
         case DTYPE_INT16: {
             switch (other.m_type) { 
                 case DTYPE_INT64: {
-                    rval.set(m_data.m_int16 % other.m_data.m_int64);
+                    rval.set(static_cast<double>(m_data.m_int16 % other.m_data.m_int64));
                 } break;
                 case DTYPE_INT32: {
-                    rval.set(m_data.m_int16 % other.m_data.m_int32);
+                    rval.set(static_cast<double>(m_data.m_int16 % other.m_data.m_int32));
                 } break;
                 case DTYPE_INT16: {
-                    rval.set(m_data.m_int16 % other.m_data.m_int16);
+                    rval.set(static_cast<double>(m_data.m_int16 % other.m_data.m_int16));
                 } break;
                 case DTYPE_INT8: {
-                    rval.set(m_data.m_int16 % other.m_data.m_int8);
+                    rval.set(static_cast<double>(m_data.m_int16 % other.m_data.m_int8));
                 } break;
                 case DTYPE_UINT64: {
-                    rval.set(m_data.m_int16 % other.m_data.m_uint64);
+                    rval.set(static_cast<double>(m_data.m_int16 % other.m_data.m_uint64));
                 } break;
                 case DTYPE_UINT32: {
-                    rval.set(m_data.m_int16 % other.m_data.m_uint32);
+                    rval.set(static_cast<double>(m_data.m_int16 % other.m_data.m_uint32));
                 } break;
                 case DTYPE_UINT16: {
-                    rval.set(m_data.m_int16 % other.m_data.m_uint16);
+                    rval.set(static_cast<double>(m_data.m_int16 % other.m_data.m_uint16));
                 } break;
                 case DTYPE_UINT8: {
-                    rval.set(m_data.m_int16 % other.m_data.m_uint8);
+                    rval.set(static_cast<double>(m_data.m_int16 % other.m_data.m_uint8));
                 } break;
                 case DTYPE_FLOAT64: {
-                    rval.set(fmod(m_data.m_int16, other.m_data.m_float64));
+                    rval.set(static_cast<double>(fmod(m_data.m_int16, other.m_data.m_float64)));
                 } break;
                 case DTYPE_FLOAT32: {
-                    rval.set(fmod(m_data.m_int16, other.m_data.m_float32));
+                    rval.set(static_cast<double>(fmod(m_data.m_int16, other.m_data.m_float32)));
                 } break;
-                default: return mknone();
+                default: return rval;
             }
         } break;
         case DTYPE_INT8: {
             switch (other.m_type) { 
                 case DTYPE_INT64: {
-                    rval.set(m_data.m_int8 % other.m_data.m_int64);
+                    rval.set(static_cast<double>(m_data.m_int8 % other.m_data.m_int64));
                 } break;
                 case DTYPE_INT32: {
-                    rval.set(m_data.m_int8 % other.m_data.m_int32);
+                    rval.set(static_cast<double>(m_data.m_int8 % other.m_data.m_int32));
                 } break;
                 case DTYPE_INT16: {
-                    rval.set(m_data.m_int8 % other.m_data.m_int16);
+                    rval.set(static_cast<double>(m_data.m_int8 % other.m_data.m_int16));
                 } break;
                 case DTYPE_INT8: {
-                    rval.set(m_data.m_int8 % other.m_data.m_int8);
+                    rval.set(static_cast<double>(m_data.m_int8 % other.m_data.m_int8));
                 } break;
                 case DTYPE_UINT64: {
-                    rval.set(m_data.m_int8 % other.m_data.m_uint64);
+                    rval.set(static_cast<double>(m_data.m_int8 % other.m_data.m_uint64));
                 } break;
                 case DTYPE_UINT32: {
-                    rval.set(m_data.m_int8 % other.m_data.m_uint32);
+                    rval.set(static_cast<double>(m_data.m_int8 % other.m_data.m_uint32));
                 } break;
                 case DTYPE_UINT16: {
-                    rval.set(m_data.m_int8 % other.m_data.m_uint16);
+                    rval.set(static_cast<double>(m_data.m_int8 % other.m_data.m_uint16));
                 } break;
                 case DTYPE_UINT8: {
-                    rval.set(m_data.m_int8 % other.m_data.m_uint8);
+                    rval.set(static_cast<double>(m_data.m_int8 % other.m_data.m_uint8));
                 } break;
                 case DTYPE_FLOAT64: {
-                    rval.set(fmod(m_data.m_int8, other.m_data.m_float64));
+                    rval.set(static_cast<double>(fmod(m_data.m_int8, other.m_data.m_float64)));
                 } break;
                 case DTYPE_FLOAT32: {
-                    rval.set(fmod(m_data.m_int8, other.m_data.m_float32));
+                    rval.set(static_cast<double>(fmod(m_data.m_int8, other.m_data.m_float32)));
                 } break;
-                default: return mknone();
+                default: return rval;
             }
         } break;
         case DTYPE_UINT64: {
             switch (other.m_type) { 
                 case DTYPE_INT64: {
-                    rval.set(m_data.m_uint64 % other.m_data.m_int64);
+                    rval.set(static_cast<double>(m_data.m_uint64 % other.m_data.m_int64));
                 } break;
                 case DTYPE_INT32: {
-                    rval.set(m_data.m_uint64 % other.m_data.m_int32);
+                    rval.set(static_cast<double>(m_data.m_uint64 % other.m_data.m_int32));
                 } break;
                 case DTYPE_INT16: {
-                    rval.set(m_data.m_uint64 % other.m_data.m_int16);
+                    rval.set(static_cast<double>(m_data.m_uint64 % other.m_data.m_int16));
                 } break;
                 case DTYPE_INT8: {
-                    rval.set(m_data.m_uint64 % other.m_data.m_int8);
+                    rval.set(static_cast<double>(m_data.m_uint64 % other.m_data.m_int8));
                 } break;
                 case DTYPE_UINT64: {
-                    rval.set(m_data.m_uint64 % other.m_data.m_uint64);
+                    rval.set(static_cast<double>(m_data.m_uint64 % other.m_data.m_uint64));
                 } break;
                 case DTYPE_UINT32: {
-                    rval.set(m_data.m_uint64 % other.m_data.m_uint32);
+                    rval.set(static_cast<double>(m_data.m_uint64 % other.m_data.m_uint32));
                 } break;
                 case DTYPE_UINT16: {
-                    rval.set(m_data.m_uint64 % other.m_data.m_uint16);
+                    rval.set(static_cast<double>(m_data.m_uint64 % other.m_data.m_uint16));
                 } break;
                 case DTYPE_UINT8: {
-                    rval.set(m_data.m_uint64 % other.m_data.m_uint8);
+                    rval.set(static_cast<double>(m_data.m_uint64 % other.m_data.m_uint8));
                 } break;
                 case DTYPE_FLOAT64: {
-                    rval.set(fmod(m_data.m_uint64, other.m_data.m_float64));
+                    rval.set(static_cast<double>(fmod(m_data.m_uint64, other.m_data.m_float64)));
                 } break;
                 case DTYPE_FLOAT32: {
-                    rval.set(fmod(m_data.m_uint64, other.m_data.m_float32));
+                    rval.set(static_cast<double>(fmod(m_data.m_uint64, other.m_data.m_float32)));
                 } break;
-                default: return mknone();
+                default: return rval;
             }
         } break;
         case DTYPE_UINT32: {
             switch (other.m_type) { 
                 case DTYPE_INT64: {
-                    rval.set(m_data.m_uint32 % other.m_data.m_int64);
+                    rval.set(static_cast<double>(m_data.m_uint32 % other.m_data.m_int64));
                 } break;
                 case DTYPE_INT32: {
-                    rval.set(m_data.m_uint32 % other.m_data.m_int32);
+                    rval.set(static_cast<double>(m_data.m_uint32 % other.m_data.m_int32));
                 } break;
                 case DTYPE_INT16: {
-                    rval.set(m_data.m_uint32 % other.m_data.m_int16);
+                    rval.set(static_cast<double>(m_data.m_uint32 % other.m_data.m_int16));
                 } break;
                 case DTYPE_INT8: {
-                    rval.set(m_data.m_uint32 % other.m_data.m_int8);
+                    rval.set(static_cast<double>(m_data.m_uint32 % other.m_data.m_int8));
                 } break;
                 case DTYPE_UINT64: {
-                    rval.set(m_data.m_uint32 % other.m_data.m_uint64);
+                    rval.set(static_cast<double>(m_data.m_uint32 % other.m_data.m_uint64));
                 } break;
                 case DTYPE_UINT32: {
-                    rval.set(m_data.m_uint32 % other.m_data.m_uint32);
+                    rval.set(static_cast<double>(m_data.m_uint32 % other.m_data.m_uint32));
                 } break;
                 case DTYPE_UINT16: {
-                    rval.set(m_data.m_uint32 % other.m_data.m_uint16);
+                    rval.set(static_cast<double>(m_data.m_uint32 % other.m_data.m_uint16));
                 } break;
                 case DTYPE_UINT8: {
-                    rval.set(m_data.m_uint32 % other.m_data.m_uint8);
+                    rval.set(static_cast<double>(m_data.m_uint32 % other.m_data.m_uint8));
                 } break;
                 case DTYPE_FLOAT64: {
-                    rval.set(fmod(m_data.m_uint32, other.m_data.m_float64));
+                    rval.set(static_cast<double>(fmod(m_data.m_uint32, other.m_data.m_float64)));
                 } break;
                 case DTYPE_FLOAT32: {
-                    rval.set(fmod(m_data.m_uint32, other.m_data.m_float32));
+                    rval.set(static_cast<double>(fmod(m_data.m_uint32, other.m_data.m_float32)));
                 } break;
-                default: return mknone();
+                default: return rval;
             }
         } break;
         case DTYPE_UINT16: {
             switch (other.m_type) { 
                 case DTYPE_INT64: {
-                    rval.set(m_data.m_uint16 % other.m_data.m_int64);
+                    rval.set(static_cast<double>(m_data.m_uint16 % other.m_data.m_int64));
                 } break;
                 case DTYPE_INT32: {
-                    rval.set(m_data.m_uint16 % other.m_data.m_int32);
+                    rval.set(static_cast<double>(m_data.m_uint16 % other.m_data.m_int32));
                 } break;
                 case DTYPE_INT16: {
-                    rval.set(m_data.m_uint16 % other.m_data.m_int16);
+                    rval.set(static_cast<double>(m_data.m_uint16 % other.m_data.m_int16));
                 } break;
                 case DTYPE_INT8: {
-                    rval.set(m_data.m_uint16 % other.m_data.m_int8);
+                    rval.set(static_cast<double>(m_data.m_uint16 % other.m_data.m_int8));
                 } break;
                 case DTYPE_UINT64: {
-                    rval.set(m_data.m_uint16 % other.m_data.m_uint64);
+                    rval.set(static_cast<double>(m_data.m_uint16 % other.m_data.m_uint64));
                 } break;
                 case DTYPE_UINT32: {
-                    rval.set(m_data.m_uint16 % other.m_data.m_uint32);
+                    rval.set(static_cast<double>(m_data.m_uint16 % other.m_data.m_uint32));
                 } break;
                 case DTYPE_UINT16: {
-                    rval.set(m_data.m_uint16 % other.m_data.m_uint16);
+                    rval.set(static_cast<double>(m_data.m_uint16 % other.m_data.m_uint16));
                 } break;
                 case DTYPE_UINT8: {
-                    rval.set(m_data.m_uint16 % other.m_data.m_uint8);
+                    rval.set(static_cast<double>(m_data.m_uint16 % other.m_data.m_uint8));
                 } break;
                 case DTYPE_FLOAT64: {
-                    rval.set(fmod(m_data.m_uint16, other.m_data.m_float64));
+                    rval.set(static_cast<double>(fmod(m_data.m_uint16, other.m_data.m_float64)));
                 } break;
                 case DTYPE_FLOAT32: {
-                    rval.set(fmod(m_data.m_uint16, other.m_data.m_float32));
+                    rval.set(static_cast<double>(fmod(m_data.m_uint16, other.m_data.m_float32)));
                 } break;
-                default: return mknone();
+                default: return rval;
             }
         } break;
         case DTYPE_UINT8: {
             switch (other.m_type) { 
                 case DTYPE_INT64: {
-                    rval.set(m_data.m_uint8 % other.m_data.m_int64);
+                    rval.set(static_cast<double>(m_data.m_uint8 % other.m_data.m_int64));
                 } break;
                 case DTYPE_INT32: {
-                    rval.set(m_data.m_uint8 % other.m_data.m_int32);
+                    rval.set(static_cast<double>(m_data.m_uint8 % other.m_data.m_int32));
                 } break;
                 case DTYPE_INT16: {
-                    rval.set(m_data.m_uint8 % other.m_data.m_int16);
+                    rval.set(static_cast<double>(m_data.m_uint8 % other.m_data.m_int16));
                 } break;
                 case DTYPE_INT8: {
-                    rval.set(m_data.m_uint8 % other.m_data.m_int8);
+                    rval.set(static_cast<double>(m_data.m_uint8 % other.m_data.m_int8));
                 } break;
                 case DTYPE_UINT64: {
-                    rval.set(m_data.m_uint8 % other.m_data.m_uint64);
+                    rval.set(static_cast<double>(m_data.m_uint8 % other.m_data.m_uint64));
                 } break;
                 case DTYPE_UINT32: {
-                    rval.set(m_data.m_uint8 % other.m_data.m_uint32);
+                    rval.set(static_cast<double>(m_data.m_uint8 % other.m_data.m_uint32));
                 } break;
                 case DTYPE_UINT16: {
-                    rval.set(m_data.m_uint8 % other.m_data.m_uint16);
+                    rval.set(static_cast<double>(m_data.m_uint8 % other.m_data.m_uint16));
                 } break;
                 case DTYPE_UINT8: {
-                    rval.set(m_data.m_uint8 % other.m_data.m_uint8);
+                    rval.set(static_cast<double>(m_data.m_uint8 % other.m_data.m_uint8));
                 } break;
                 case DTYPE_FLOAT64: {
-                    rval.set(fmod(m_data.m_uint8, other.m_data.m_float64));
+                    rval.set(static_cast<double>(fmod(m_data.m_uint8, other.m_data.m_float64)));
                 } break;
                 case DTYPE_FLOAT32: {
-                    rval.set(fmod(m_data.m_uint8, other.m_data.m_float32));
+                    rval.set(static_cast<double>(fmod(m_data.m_uint8, other.m_data.m_float32)));
                 } break;
-                default: return mknone();
+                default: return rval;
             }
         } break;
         case DTYPE_FLOAT64: {
             switch (other.m_type) { 
                 case DTYPE_INT64: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_int64);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_int64));
                 } break;
                 case DTYPE_INT32: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_int32);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_int32));
                 } break;
                 case DTYPE_INT16: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_int16);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_int16));
                 } break;
                 case DTYPE_INT8: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_int8);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_int8));
                 } break;
                 case DTYPE_UINT64: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_uint64);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_uint64));
                 } break;
                 case DTYPE_UINT32: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_uint32);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_uint32));
                 } break;
                 case DTYPE_UINT16: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_uint16);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_uint16));
                 } break;
                 case DTYPE_UINT8: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_uint8);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float64) % other.m_data.m_uint8));
                 } break;
                 case DTYPE_FLOAT64: {
-                    rval.set(fmod(m_data.m_float64, other.m_data.m_float64));
+                    rval.set(static_cast<double>(fmod(m_data.m_float64, other.m_data.m_float64)));
                 } break;
                 case DTYPE_FLOAT32: {
-                    rval.set(fmod(m_data.m_float64, other.m_data.m_float32));
+                    rval.set(static_cast<double>(fmod(m_data.m_float64, other.m_data.m_float32)));
                 } break;
-                default: return mknone();
+                default: return rval;
             }
         } break;
         case DTYPE_FLOAT32: {
             switch (other.m_type) { 
                 case DTYPE_INT64: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_int64);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_int64));
                 } break;
                 case DTYPE_INT32: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_int32);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_int32));
                 } break;
                 case DTYPE_INT16: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_int16);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_int16));
                 } break;
                 case DTYPE_INT8: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_int8);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_int8));
                 } break;
                 case DTYPE_UINT64: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_uint64);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_uint64));
                 } break;
                 case DTYPE_UINT32: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_uint32);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_uint32));
                 } break;
                 case DTYPE_UINT16: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_uint16);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_uint16));
                 } break;
                 case DTYPE_UINT8: {
-                    rval.set(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_uint8);
+                    rval.set(static_cast<double>(static_cast<std::int64_t>(m_data.m_float32) % other.m_data.m_uint8));
                 } break;
                 case DTYPE_FLOAT64: {
-                    rval.set(fmod(m_data.m_float32, other.m_data.m_float64));
+                    rval.set(static_cast<double>(fmod(m_data.m_float32, other.m_data.m_float64)));
                 } break;
                 case DTYPE_FLOAT32: {
-                    rval.set(fmod(m_data.m_float32, other.m_data.m_float32));
+                    rval.set(static_cast<double>(fmod(m_data.m_float32, other.m_data.m_float32)));
                 } break;
-                default: return mknone();
+                default: return rval;
             }
         } break;
-        default: return mknone();
+        default: return rval;
     }
 
     return rval;

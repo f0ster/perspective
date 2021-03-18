@@ -420,10 +420,7 @@ t_computed_expression_parser::precompute(
 
         t_tscalar rval;
         rval.m_type = schema->get_dtype(column_name);
-
-        // Needs to be valid here, as invalid scalars will return DTYPE_NONE
-        // which will break the assumptions of the type checker.
-        rval.m_status = STATUS_VALID;
+        rval.m_status = STATUS_INVALID;
         values[cidx] = rval;
 
         sym_table.add_variable(column_id, values[cidx]);
@@ -486,10 +483,7 @@ t_computed_expression_parser::get_dtype(
 
         t_tscalar rval;
         rval.m_type = schema.get_dtype(column_name);
-
-        // Needs to be valid here, as invalid scalars will return DTYPE_NONE
-        // which will break the assumptions of the type checker.
-        rval.m_status = STATUS_VALID;
+        rval.m_status = STATUS_INVALID;
         values[cidx] = rval;
 
         sym_table.add_variable(column_id, values[cidx]);
@@ -512,6 +506,11 @@ t_computed_expression_parser::get_dtype(
     }
 
     t_tscalar v = expr_definition.value();
+
+    if (v.m_status == STATUS_CLEAR) {
+        return DTYPE_NONE;
+    }
+
     return v.get_dtype();
 }
 
