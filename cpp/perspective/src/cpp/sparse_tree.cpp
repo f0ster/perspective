@@ -1007,17 +1007,20 @@ t_stree::update_agg_table(t_uindex nidx, t_agg_update_info& info, t_uindex src_r
             case AGGTYPE_JOIN: {
                 old_value.set(dst->get_scalar(dst_ridx));
                 auto pkeys = get_pkeys(nidx);
+                const unsigned int CHAR_LENGTH_LIMIT = 280; 
 
                 new_value.set(gstate.reduce<std::function<t_tscalar(std::vector<t_tscalar>&)>>(
                     pkeys, spec.get_dependencies()[0].name(),
                     [this](std::vector<t_tscalar>& values) {
-                        std::set<t_tscalar> vset;
+                        std::set<std::string> vset;
                         for (const auto& v : values) {
-                            vset.insert(v);
+                            std::string abbreviated_value = v.to_string();
+                            abbreviated_value.resize(CHAR_LENGTH_LIMIT);
+                            vset.insert(abbreviated_value);
                         }
 
                         std::stringstream ss;
-                        for (std::set<t_tscalar>::const_iterator iter = vset.begin();
+                        for (std::set<std::string>::const_iterator iter = vset.begin();
                              iter != vset.end(); ++iter) {
                             ss << *iter << ", ";
                         }
